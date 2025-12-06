@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TextMimic Studio - メーカー作成</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', 'Noto Sans JP', sans-serif; }
+        .loader {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-20">
+
+    <div id="app" class="max-w-4xl mx-auto">
+        
+        <!-- ヘッダー -->
+        <header class="bg-white border-b border-slate-200 p-4 sticky top-0 z-10 flex justify-between items-center shadow-sm">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">M</div>
+                <span class="font-bold text-slate-900">TextMimic Studio</span>
+            </div>
+            <div class="flex gap-3">
+                <button class="text-sm font-bold text-slate-500 hover:text-slate-800">キャンセル</button>
+                <button @click="publishMaker" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition shadow-md">
+                    公開する 🚀
+                </button>
+            </div>
+        </header>
+
+        <main class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- 左側：設定エリア -->
+            <div class="space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <span>🛠</span> 基本設定
+                    </h2>
+                    
+                    <!-- アイコンとタイトル -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">アイコン (Emoji)</label>
+                            <input v-model="form.emoji" type="text" class="text-3xl w-16 h-16 text-center border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="🐯">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">メーカー名</label>
+                            <input v-model="form.title" type="text" class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold" placeholder="例：関西弁おかんメーカー">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">説明文</label>
+                            <input v-model="form.description" type="text" class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="どんな風に変換されるか短く説明">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 ring-2 ring-indigo-50">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold flex items-center gap-2 text-indigo-700">
+                            <span>🧠</span> AIへの指示 (プロンプト)
+                        </h2>
+                        <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-bold">最重要</span>
+                    </div>
+                    
+                    <p class="text-xs text-slate-500 mb-3">
+                        AIになりきって欲しいキャラクターや、口調、ルールの指示を書いてください。
+                    </p>
+                    <textarea 
+                        v-model="form.systemPrompt" 
+                        class="w-full h-40 p-4 border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none bg-indigo-50/30 text-sm leading-relaxed"
+                        placeholder="例：あなたは大阪の世話焼きなおかんです。入力された文章を、飴ちゃんを渡すような優しい関西弁に変換してください。語尾には「知らんけど」をつけてください。"
+                    ></textarea>
+                </div>
+            </div>
+
+            <!-- 右側：プレビュー＆テストエリア -->
+            <div class="space-y-6">
+                <div class="bg-slate-800 text-white p-6 rounded-2xl shadow-xl">
+                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <span>🧪</span> 動作テスト
+                    </h2>
+                    <p class="text-slate-400 text-xs mb-4">
+                        左側の設定を使って、実際にどう変換されるか試してみましょう。
+                    </p>
+
+                    <!-- テスト入力 -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold text-slate-400 uppercase">テスト用の入力テキスト</label>
+                        <input v-model="testInput" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-xl focus:outline-none text-white" placeholder="ここに変換したい言葉を入力...">
+                    </div>
+
+                    <!-- テスト実行ボタン -->
+                    <button 
+                        @click="runTest" 
+                        :disabled="!testInput || isLoading"
+                        class="mt-4 w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-3 rounded-xl transition flex justify-center items-center gap-2 disabled:opacity-50"
+                    >
+                        <span v-if="isLoading" class="loader"></span>
+                        <span v-if="!isLoading">テスト実行 ▶</span>
+                    </button>
+
+                    <!-- テスト結果 -->
+                    <div v-if="testResult" class="mt-6 pt-6 border-t border-slate-700">
+                        <label class="text-xs font-bold text-emerald-400 uppercase mb-2 block">AIからの返答</label>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 leading-relaxed whitespace-pre-wrap">
+{{ testResult }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- プレビューカード -->
+                <div class="opacity-70 pointer-events-none select-none">
+                    <p class="text-center text-xs text-slate-400 mb-2">一覧画面での見え方プレビュー</p>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <div class="flex items-start justify-between mb-4">
+                            <span class="text-4xl">{{ form.emoji || '❓' }}</span>
+                            <span class="text-xs font-bold px-2 py-1 rounded bg-slate-100 text-slate-500 uppercase">USER</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-900 mb-2">{{ form.title || 'タイトル未設定' }}</h3>
+                        <p class="text-sm text-slate-500">{{ form.description || '説明文がここに入ります...' }}</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // ==========================================
+        // 【設定】ここにAPIキーを入れてください
+        const SYSTEM_API_KEY = ''; 
+        // ==========================================
+
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    // フォームの内容
+                    form: {
+                        emoji: '🐯',
+                        title: '',
+                        description: '',
+                        systemPrompt: ''
+                    },
+                    // テスト用
+                    testInput: '',
+                    testResult: '',
+                    isLoading: false
+                }
+            },
+            methods: {
+                async runTest() {
+                    if (!this.testInput) return;
+                    this.isLoading = true;
+                    this.testResult = '';
+
+                    try {
+                        if (!SYSTEM_API_KEY) {
+                            // デモモード
+                            await new Promise(r => setTimeout(r, 1000));
+                            this.testResult = "【テスト成功】\n(APIキー未設定のためデモ回答です)\n\nここにAIが生成したテキストが表示されます。\nプロンプト: " + this.form.systemPrompt;
+                            this.isLoading = false;
+                            return;
+                        }
+
+                        // APIリクエスト (入力されたプロンプトを使ってテスト)
+                        const response = await fetch('https://llm.chutes.ai/v1/chat/completions', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${SYSTEM_API_KEY}`
+                            },
+                            body: JSON.stringify({
+                                model: "openai/gpt-oss-20b",
+                                messages: [
+                                    { role: "system", content: this.form.systemPrompt },
+                                    { role: "user", content: this.testInput }
+                                ],
+                                temperature: 0.7
+                            })
+                        });
+
+                        const data = await response.json();
+                        this.testResult = data.choices[0].message.content;
+
+                    } catch (error) {
+                        alert("エラー: " + error.message);
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                publishMaker() {
+                    // ここで本来はデータベースに保存します
+                    if(!this.form.title || !this.form.systemPrompt) {
+                        alert("タイトルとプロンプトは必須です！");
+                        return;
+                    }
+                    
+                    const confirmMsg = `
+【公開シミュレーション】
+以下の内容でデータベースに保存されます：
+
+タイトル: ${this.form.title}
+プロンプト: ${this.form.systemPrompt}
+
+※現在はデータベース接続前のため、保存されません。
+                    `;
+                    alert(confirmMsg);
+                }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
