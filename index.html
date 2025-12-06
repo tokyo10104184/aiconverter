@@ -23,9 +23,8 @@
                 <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">M</div>
                 <span class="text-xl font-extrabold tracking-tight text-slate-900">TextMimic</span>
             </div>
-            <!-- 作成ページへのリンク -->
             <a href="creator.html" class="bg-slate-900 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-slate-800 transition">
-                + メーカーを作る
+                + 作る
             </a>
         </nav>
 
@@ -33,36 +32,60 @@
             <transition name="fade" mode="out-in">
                 <!-- HOME画面 -->
                 <div v-if="!currentMaker" key="home">
-                    <div class="text-center py-10 md:py-16">
+                    <div class="text-center py-8 md:py-12">
                         <h1 class="text-3xl md:text-5xl font-extrabold text-slate-900 mb-4 leading-tight">
-                            あらゆる言葉を、<br><span class="text-indigo-600">思い通り</span>に変換しよう。
+                            言葉を遊ぼう。<br><span class="text-indigo-600">AIテキスト変換</span>
                         </h1>
-                        <p class="text-slate-500 max-w-xl mx-auto text-lg mb-6">
-                            みんなが作ったAI変換ツールが集まる場所。
-                        </p>
                     </div>
 
-                    <!-- 読み込み中表示 -->
-                    <div v-if="isFetching" class="text-center py-10">
-                        <div class="inline-block loader border-indigo-200 border-t-indigo-600 w-8 h-8"></div>
-                        <p class="text-slate-400 text-sm mt-2">メーカーを読み込んでいます...</p>
-                    </div>
-
-                    <!-- メーカー一覧 -->
-                    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div 
-                            v-for="maker in makers" 
-                            :key="maker.id"
-                            @click="selectMaker(maker)"
-                            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
-                        >
-                            <div class="flex items-start justify-between mb-4">
-                                <span class="text-4xl filter group-hover:scale-110 transition-transform duration-300">{{ maker.emoji }}</span>
+                    <!-- ① 公式ピックアップ -->
+                    <section class="mb-12">
+                        <h2 class="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+                            <span>👑</span> 公式ピックアップ
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div 
+                                v-for="maker in officialMakers" 
+                                :key="maker.id"
+                                @click="selectMaker(maker)"
+                                class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group ring-1 ring-indigo-50"
+                            >
+                                <div class="flex items-start justify-between mb-4">
+                                    <span class="text-4xl filter group-hover:scale-110 transition-transform duration-300">{{ maker.emoji }}</span>
+                                    <span class="text-xs font-bold px-2 py-1 rounded bg-indigo-100 text-indigo-600 uppercase">OFFICIAL</span>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-900 mb-2 group-hover:text-indigo-600">{{ maker.title }}</h3>
+                                <p class="text-sm text-slate-500 leading-relaxed">{{ maker.description }}</p>
                             </div>
-                            <h3 class="text-lg font-bold text-slate-900 mb-2 group-hover:text-indigo-600">{{ maker.title }}</h3>
-                            <p class="text-sm text-slate-500 leading-relaxed">{{ maker.description }}</p>
                         </div>
-                    </div>
+                    </section>
+
+                    <!-- ② 新着の投稿 (Firebase) -->
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+                            <span>✨</span> みんなの投稿 (新着)
+                        </h2>
+                        
+                        <div v-if="isFetching" class="text-center py-10">
+                            <div class="inline-block loader border-indigo-200 border-t-indigo-600 w-8 h-8"></div>
+                        </div>
+
+                        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div 
+                                v-for="maker in userMakers" 
+                                :key="maker.id"
+                                @click="selectMaker(maker)"
+                                class="bg-slate-50 p-6 rounded-2xl shadow-sm border border-slate-200 hover:bg-white hover:shadow-lg transition-all cursor-pointer group"
+                            >
+                                <div class="flex items-start justify-between mb-4">
+                                    <span class="text-4xl filter group-hover:scale-110 transition-transform duration-300">{{ maker.emoji }}</span>
+                                    <span class="text-xs font-bold px-2 py-1 rounded bg-slate-200 text-slate-500 uppercase">USER</span>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-900 mb-2 group-hover:text-indigo-600 line-clamp-1">{{ maker.title }}</h3>
+                                <p class="text-sm text-slate-500 leading-relaxed line-clamp-2">{{ maker.description }}</p>
+                            </div>
+                        </div>
+                    </section>
                 </div>
 
                 <!-- PLAY画面 -->
@@ -80,8 +103,16 @@
                                 <span v-if="isLoading" class="loader"></span>
                                 <span v-if="!isLoading">変換スタート ⚡</span>
                             </button>
-                            <div v-if="outputText" class="bg-indigo-50 rounded-xl p-6 border border-indigo-100 mt-4">
+                            
+                            <!-- 結果表示エリア -->
+                            <div v-if="outputText" class="bg-indigo-50 rounded-xl p-6 border border-indigo-100 mt-4 animate-fade-in">
                                 <div class="text-slate-800 leading-relaxed whitespace-pre-wrap">{{ outputText }}</div>
+                                <!-- シェアボタン -->
+                                <div class="mt-4 pt-4 border-t border-indigo-200">
+                                    <button @click="shareOnTwitter" class="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition flex items-center justify-center gap-2">
+                                        <span>𝕏 でポストする</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -93,11 +124,10 @@
 
     <!-- Firebase SDK -->
     <script type="module">
-        // ▼▼▼ ここにFirebaseの設定を貼り付けてください ▼▼▼
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, orderBy, query, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // ↓↓↓ Step 2で取得したあなたのfirebaseConfigをここに上書きしてください ↓↓↓
+        // ▼▼▼ Firebase Config (前回と同じものを貼ってください) ▼▼▼
         const firebaseConfig = {
   apiKey: "AIzaSyCgSNCKuPIdi-7P7hJDv3NcCKp_cjPRlB4",
   authDomain: "aihenkan-7f101.firebaseapp.com",
@@ -107,20 +137,30 @@
   appId: "1:695320170916:web:a1317704b02970b1c07131",
   measurementId: "G-G4DW26MH4L"
         };
-        // ↑↑↑↑↑↑
+        // ▲▲▲
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Chutes.ai API KEY (閲覧用)
-        const SYSTEM_API_KEY = 'cpk_2e9498f987914bd697799c5e55961598.4b7f1379e5fd584a8708c89da5014f0d.ZLov3HxeOWBvj1aFDILjudjoRoOsoHSH'; // ←あなたのChutes.aiのキーを入れてください
+        // ▼▼▼ Chutes.ai API KEY ▼▼▼
+        const SYSTEM_API_KEY = 'cpk_2e9498f987914bd697799c5e55961598.4b7f1379e5fd584a8708c89da5014f0d.ZLov3HxeOWBvj1aFDILjudjoRoOsoHSH'; // あなたのキー
+        // ▲▲▲
 
         const { createApp } = Vue;
 
         createApp({
             data() {
                 return {
-                    makers: [], // Firebaseから取得したリストが入る
+                    // ① 公式メーカー（プリセット）
+                    officialMakers: [
+                        { id: 'off_1', emoji: '😇', title: '聖人君子メール', description: '怒りを極めて冷静なビジネスメールに。', systemPrompt: 'あなたは超一流のビジネスマンです。感情的な文章を、意味を変えずに丁寧で円滑なビジネスメールに書き換えてください。' },
+                        { id: 'off_2', emoji: '🍺', title: 'おじさん構文', description: '文章を絵文字多めの馴れ馴れしいおじさんに。', systemPrompt: 'あなたは日本の「おじさん」です。絵文字や顔文字を多用し、読点が変な位置にあり、妙に馴れ馴れしい「おじさん構文」に変換してください。' },
+                        { id: 'off_3', emoji: '📚', title: '3行要約くん', description: '長い文章を要点を押さえて3行に。', systemPrompt: '入力された文章の要点を抽出し、箇条書きの3行だけでまとめてください。' },
+                        { id: 'off_4', emoji: '🇺🇸', title: 'ネイティブ翻訳', description: '自然な英語表現に変換・解説。', systemPrompt: '入力された文章を自然な英語に翻訳し、なぜその表現を使ったか解説してください。' },
+                        { id: 'off_5', emoji: '🌑', title: '厨二病メーカー', description: '日常会話を闇の住人の言葉に。', systemPrompt: '入力された文章を、難解な漢字やカタカナ用語を多用した、厨二病全開の言葉遣いに変換してください。' },
+                        { id: 'off_6', emoji: '💖', title: 'ギャル語変換', description: 'テンション高めのギャル語に。', systemPrompt: '入力された文章を、絵文字たっぷりのハイテンションなギャル語に変換してください。' }
+                    ],
+                    userMakers: [], // ② ユーザー投稿（Firebaseから取得）
                     currentMaker: null,
                     inputText: '',
                     outputText: '',
@@ -129,11 +169,11 @@
                 }
             },
             async mounted() {
-                // アプリ起動時にFirebaseからデータを読み込む
+                // Firebaseからユーザー投稿を取得（最新20件）
                 try {
-                    const q = query(collection(db, "makers"), orderBy("createdAt", "desc"));
+                    const q = query(collection(db, "makers"), orderBy("createdAt", "desc"), limit(20));
                     const querySnapshot = await getDocs(q);
-                    this.makers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    this.userMakers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 } catch (e) {
                     console.error("Error loading makers:", e);
                 } finally {
@@ -179,6 +219,12 @@
                     } finally {
                         this.isLoading = false;
                     }
+                },
+                shareOnTwitter() {
+                    // シェア用テキストの作成
+                    const shareText = `「${this.currentMaker.title}」で変換しました！\n\n${this.outputText.substring(0, 100)}...`; // 100文字で切る
+                    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&hashtags=TextMimic,AIメーカー`;
+                    window.open(url, '_blank');
                 }
             }
         }).mount('#app');
