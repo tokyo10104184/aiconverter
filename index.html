@@ -11,243 +11,132 @@
         body { font-family: 'Inter', 'Noto Sans JP', sans-serif; }
         .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
         .fade-enter-from, .fade-leave-to { opacity: 0; }
-        .slide-up-enter-active { transition: all 0.4s ease-out; }
-        .slide-up-enter-from { opacity: 0; transform: translateY(20px); }
-        .loader {
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top: 3px solid #fff;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-        }
+        .loader { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid #fff; width: 20px; height: 20px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
-
     <div id="app" class="max-w-5xl mx-auto min-h-screen flex flex-col">
-        
-        <!-- ナビゲーションバー -->
+        <!-- ナビ -->
         <nav class="flex items-center justify-between p-6">
             <div class="flex items-center gap-2 cursor-pointer" @click="goHome">
                 <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">M</div>
                 <span class="text-xl font-extrabold tracking-tight text-slate-900">TextMimic</span>
             </div>
-            <div class="text-sm font-medium text-slate-500 hover:text-indigo-600 cursor-pointer">
-                ログイン / 登録 (Coming Soon)
-            </div>
+            <!-- 作成ページへのリンク -->
+            <a href="creator.html" class="bg-slate-900 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-slate-800 transition">
+                + メーカーを作る
+            </a>
         </nav>
 
-        <!-- メインコンテンツ -->
         <main class="flex-1 p-4 md:p-6">
-            
-            <!-- HOME画面: メーカー一覧 -->
             <transition name="fade" mode="out-in">
+                <!-- HOME画面 -->
                 <div v-if="!currentMaker" key="home">
-                    
-                    <!-- ヒーローセクション -->
                     <div class="text-center py-10 md:py-16">
                         <h1 class="text-3xl md:text-5xl font-extrabold text-slate-900 mb-4 leading-tight">
                             あらゆる言葉を、<br><span class="text-indigo-600">思い通り</span>に変換しよう。
                         </h1>
-                        <p class="text-slate-500 max-w-xl mx-auto text-lg">
-                            ビジネスメールからネタ投稿まで。<br>
-                            AIがあなたの文章を「擬態（Mimic）」させます。
+                        <p class="text-slate-500 max-w-xl mx-auto text-lg mb-6">
+                            みんなが作ったAI変換ツールが集まる場所。
                         </p>
                     </div>
 
-                    <!-- カテゴリタブ -->
-                    <div class="flex justify-center gap-2 mb-8 flex-wrap">
-                        <button 
-                            v-for="cat in categories" 
-                            :key="cat.id"
-                            @click="selectedCategory = cat.id"
-                            class="px-4 py-2 rounded-full text-sm font-bold transition-all"
-                            :class="selectedCategory === cat.id ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
-                        >
-                            {{ cat.name }}
-                        </button>
+                    <!-- 読み込み中表示 -->
+                    <div v-if="isFetching" class="text-center py-10">
+                        <div class="inline-block loader border-indigo-200 border-t-indigo-600 w-8 h-8"></div>
+                        <p class="text-slate-400 text-sm mt-2">メーカーを読み込んでいます...</p>
                     </div>
 
-                    <!-- メーカーカード一覧 -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- メーカー一覧 -->
+                    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <div 
-                            v-for="maker in filteredMakers" 
+                            v-for="maker in makers" 
                             :key="maker.id"
                             @click="selectMaker(maker)"
                             class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
                         >
                             <div class="flex items-start justify-between mb-4">
                                 <span class="text-4xl filter group-hover:scale-110 transition-transform duration-300">{{ maker.emoji }}</span>
-                                <span class="text-xs font-bold px-2 py-1 rounded bg-slate-100 text-slate-500 uppercase">{{ maker.categoryLabel }}</span>
                             </div>
-                            <h3 class="text-lg font-bold text-slate-900 mb-2 group-hover:text-indigo-600 transition-colors">{{ maker.title }}</h3>
+                            <h3 class="text-lg font-bold text-slate-900 mb-2 group-hover:text-indigo-600">{{ maker.title }}</h3>
                             <p class="text-sm text-slate-500 leading-relaxed">{{ maker.description }}</p>
-                            <div class="mt-4 flex items-center text-indigo-600 text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                                使ってみる →
-                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- PLAY画面: 個別ツール実行 -->
+                <!-- PLAY画面 -->
                 <div v-else key="play" class="max-w-2xl mx-auto">
-                    <!-- 戻るボタン -->
-                    <button @click="goHome" class="mb-6 flex items-center text-slate-500 hover:text-indigo-600 transition font-medium">
-                        ← 一覧に戻る
-                    </button>
-
+                    <button @click="goHome" class="mb-6 flex items-center text-slate-500 hover:text-indigo-600 transition font-medium">← 一覧に戻る</button>
                     <div class="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
-                        <!-- ヘッダー -->
                         <div class="p-8 pb-4 text-center bg-gradient-to-b from-slate-50 to-white">
                             <div class="text-5xl mb-4">{{ currentMaker.emoji }}</div>
                             <h2 class="text-2xl font-bold text-slate-900">{{ currentMaker.title }}</h2>
                             <p class="text-slate-500 text-sm mt-2">{{ currentMaker.description }}</p>
                         </div>
-
                         <div class="p-6 md:p-8 space-y-6">
-                            <!-- 入力 -->
-                            <div>
-                                <textarea 
-                                    v-model="inputText" 
-                                    class="w-full h-32 p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none bg-slate-50 placeholder-slate-400 text-base"
-                                    :placeholder="currentMaker.placeholder"
-                                ></textarea>
-                            </div>
-
-                            <!-- ボタン -->
-                            <button 
-                                @click="convertText" 
-                                :disabled="!inputText || isLoading"
-                                class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg transform transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
-                            >
+                            <textarea v-model="inputText" class="w-full h-32 p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all resize-none bg-slate-50" :placeholder="currentMaker.placeholder || 'ここにテキストを入力...'"></textarea>
+                            <button @click="convertText" :disabled="!inputText || isLoading" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg transition flex justify-center items-center gap-2">
                                 <span v-if="isLoading" class="loader"></span>
                                 <span v-if="!isLoading">変換スタート ⚡</span>
                             </button>
-
-                            <!-- 出力 -->
-                            <transition name="slide-up">
-                                <div v-if="outputText" class="relative bg-indigo-50 rounded-xl p-6 border border-indigo-100">
-                                    <div class="absolute top-0 left-0 bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1 rounded-br-xl rounded-tl-xl">Result</div>
-                                    <div class="text-slate-800 leading-relaxed whitespace-pre-wrap mt-2">{{ outputText }}</div>
-                                    
-                                    <div class="mt-4 flex gap-2 justify-end">
-                                        <button @click="copyToClipboard" class="text-sm font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1 transition">
-                                            <span v-if="copied">Copied!</span>
-                                            <span v-else>Copy</span> 📋
-                                        </button>
-                                    </div>
-                                </div>
-                            </transition>
+                            <div v-if="outputText" class="bg-indigo-50 rounded-xl p-6 border border-indigo-100 mt-4">
+                                <div class="text-slate-800 leading-relaxed whitespace-pre-wrap">{{ outputText }}</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </transition>
         </main>
-
-        <footer class="p-6 text-center text-slate-400 text-xs">
-            © 2024 TextMimic Platform. Powered by Chutes.ai
-        </footer>
+        <footer class="p-6 text-center text-slate-400 text-xs">© 2024 TextMimic</footer>
     </div>
 
-    <script>
-        // ==========================================
-        // 【設定】ここにAPIキーを入れてください
-        const SYSTEM_API_KEY = 'cpk_31b49a7636f34da7b4567183f7e5ebbe.4b7f1379e5fd584a8708c89da5014f0d.jgf81xRpvc8qJqqWeGgsznMouSscFp4F'; 
-        // ==========================================
+    <!-- Firebase SDK -->
+    <script type="module">
+        // ▼▼▼ ここにFirebaseの設定を貼り付けてください ▼▼▼
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        const { createApp } = Vue
+        // ↓↓↓ Step 2で取得したあなたのfirebaseConfigをここに上書きしてください ↓↓↓
+        const firebaseConfig = {
+            apiKey: "AIzaSy...",
+            authDomain: "...",
+            projectId: "...",
+            storageBucket: "...",
+            messagingSenderId: "...",
+            appId: "..."
+        };
+        // ↑↑↑↑↑↑
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Chutes.ai API KEY (閲覧用)
+        const SYSTEM_API_KEY = ''; // ←あなたのChutes.aiのキーを入れてください
+
+        const { createApp } = Vue;
 
         createApp({
             data() {
                 return {
-                    selectedCategory: 'all',
-                    currentMaker: null, // 現在選択中のメーカー（nullならホーム画面）
+                    makers: [], // Firebaseから取得したリストが入る
+                    currentMaker: null,
                     inputText: '',
                     outputText: '',
                     isLoading: false,
-                    copied: false,
-                    
-                    // カテゴリ定義
-                    categories: [
-                        { id: 'all', name: 'すべて' },
-                        { id: 'work', name: '💼 仕事・効率化' },
-                        { id: 'fun', name: '🤣 ネタ・エンタメ' },
-                        { id: 'creative', name: '🎨 創作・学習' }
-                    ],
-
-                    // ★ここにメーカーを追加するだけで機能が増えます★
-                    makers: [
-                        {
-                            id: 1,
-                            title: '聖人君子メール',
-                            emoji: '😇',
-                            description: '怒りの感情を、極めて冷静で知的なビジネスメールに変換します。',
-                            category: 'work',
-                            categoryLabel: 'Business',
-                            systemPrompt: 'あなたは超一流のビジネスマンです。入力された感情的な文章を、意味を変えずに非常に丁寧で円滑なビジネスメールに書き換えてください。',
-                            placeholder: '例：ふざけんな！納期過ぎてんのに連絡なしかよ。'
-                        },
-                        {
-                            id: 2,
-                            title: 'おじさん構文メーカー',
-                            emoji: '🍺',
-                            description: '普通の文章を、絵文字多めで距離感の近い「おじさん構文」に変換します。',
-                            category: 'fun',
-                            categoryLabel: 'Joke',
-                            systemPrompt: 'あなたは日本の「おじさん」です。入力された文章を、絵文字や顔文字を多用し、読点が変な位置にあり、妙に馴れ馴れしい「おじさん構文」に変換してください。「〜カナ？」「ナンチャッテ」などを多用してください。',
-                            placeholder: '例：今日は天気がいいから散歩に行きます。'
-                        },
-                        {
-                            id: 3,
-                            title: '3行要約くん',
-                            emoji: '📚',
-                            description: '長い文章を、要点を押さえた箇条書き3行にまとめます。',
-                            category: 'work',
-                            categoryLabel: 'Efficiency',
-                            systemPrompt: 'あなたは優秀な要約アシスタントです。入力された文章の要点を抽出し、箇条書きの3行だけでまとめてください。',
-                            placeholder: '要約したい長い文章をここに貼り付けてください...'
-                        },
-                        {
-                            id: 4,
-                            title: '厨二病クリエイター',
-                            emoji: '🌑',
-                            description: '日常会話を、漆黒の闇を纏ったカッコいい（？）言い回しに変換します。',
-                            category: 'fun',
-                            categoryLabel: 'Joke',
-                            systemPrompt: 'あなたは重度の厨二病（中二病）患者です。入力された文章を、難解な漢字やカタカナ用語（ルビ付き）を多用した、闇の住人のような言葉遣いに変換してください。',
-                            placeholder: '例：お腹すいたからコンビニ行ってくるわ。'
-                        },
-                        {
-                            id: 5,
-                            title: 'ポジティブ変換機',
-                            emoji: '🌞',
-                            description: 'ネガティブな発言を、無理やりポジティブで前向きな言葉に変えます。',
-                            category: 'creative',
-                            categoryLabel: 'Life',
-                            systemPrompt: 'あなたは超ポジティブなライフコーチです。入力されたネガティブな文章を、すべて前向きなチャンスや成長の機会と捉えた文章に変換してください。',
-                            placeholder: '例：失敗してもう最悪だ。何もしたくない。'
-                        },
-                        {
-                            id: 6,
-                            title: '英文添削＆解説',
-                            emoji: '🇺🇸',
-                            description: '英語の文章を入力すると、ネイティブレベルに修正し、解説を加えます。',
-                            category: 'creative',
-                            categoryLabel: 'Study',
-                            systemPrompt: 'あなたはプロの英語教師です。入力された英語の文章をより自然なネイティブ表現に修正し、なぜそう直したのかの解説を日本語で付け加えてください。',
-                            placeholder: '例：I want to go eat lunch with friend.'
-                        }
-                    ]
+                    isFetching: true
                 }
             },
-            computed: {
-                filteredMakers() {
-                    if (this.selectedCategory === 'all') {
-                        return this.makers;
-                    }
-                    return this.makers.filter(m => m.category === this.selectedCategory);
+            async mounted() {
+                // アプリ起動時にFirebaseからデータを読み込む
+                try {
+                    const q = query(collection(db, "makers"), orderBy("createdAt", "desc"));
+                    const querySnapshot = await getDocs(q);
+                    this.makers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                } catch (e) {
+                    console.error("Error loading makers:", e);
+                } finally {
+                    this.isFetching = false;
                 }
             },
             methods: {
@@ -264,23 +153,15 @@
                     if (!this.inputText) return;
                     this.isLoading = true;
                     this.outputText = '';
-
                     try {
                         if (!SYSTEM_API_KEY) {
-                            // デモモード
                             await new Promise(r => setTimeout(r, 1000));
-                            this.outputText = "【デモモード】\nAPIキーが設定されていません。\n\nこれはダミーの応答です。実際には、選択した「" + this.currentMaker.title + "」の指示に従ってAIが変換を行います。";
-                            this.isLoading = false;
-                            return;
+                            this.outputText = "【デモモード】APIキー未設定です。"; 
+                            this.isLoading = false; return;
                         }
-
-                        // APIリクエスト
                         const response = await fetch('https://llm.chutes.ai/v1/chat/completions', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${SYSTEM_API_KEY}`
-                            },
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SYSTEM_API_KEY}` },
                             body: JSON.stringify({
                                 model: "openai/gpt-oss-20b",
                                 messages: [
@@ -290,25 +171,16 @@
                                 temperature: 0.7
                             })
                         });
-
                         const data = await response.json();
-                        if (data.error) throw new Error(data.error.message);
                         this.outputText = data.choices[0].message.content;
-
                     } catch (error) {
                         alert("Error: " + error.message);
                     } finally {
                         this.isLoading = false;
                     }
-                },
-                copyToClipboard() {
-                    navigator.clipboard.writeText(this.outputText).then(() => {
-                        this.copied = true;
-                        setTimeout(() => this.copied = false, 2000);
-                    });
                 }
             }
-        }).mount('#app')
+        }).mount('#app');
     </script>
 </body>
 </html>
