@@ -118,6 +118,15 @@
                 </div>
             </transition>
         </main>
+
+        <!-- ▼▼▼ 広告エリア（フッター直前に配置） ▼▼▼ -->
+        <div class="w-full flex justify-center items-center py-6 bg-slate-50">
+            <!-- admax -->
+            <script src="https://adm.shinobi.jp/s/243ffa4401dd31f9cda77e9d4bfe7662"></script>
+            <!-- admax -->
+        </div>
+        <!-- ▲▲▲ 広告エリア終了 ▲▲▲ -->
+
         <footer class="p-6 text-center text-slate-400 text-xs">© 2024 TextMimic</footer>
     </div>
 
@@ -126,15 +135,15 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, getDocs, orderBy, query, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // ▼▼▼ Firebase Config (前回と同じものを貼ってください) ▼▼▼
+        // ▼▼▼ Firebase Config ▼▼▼
         const firebaseConfig = {
-  apiKey: "AIzaSyCgSNCKuPIdi-7P7hJDv3NcCKp_cjPRlB4",
-  authDomain: "aihenkan-7f101.firebaseapp.com",
-  projectId: "aihenkan-7f101",
-  storageBucket: "aihenkan-7f101.firebasestorage.app",
-  messagingSenderId: "695320170916",
-  appId: "1:695320170916:web:a1317704b02970b1c07131",
-  measurementId: "G-G4DW26MH4L"
+            apiKey: "AIzaSyCgSNCKuPIdi-7P7hJDv3NcCKp_cjPRlB4",
+            authDomain: "aihenkan-7f101.firebaseapp.com",
+            projectId: "aihenkan-7f101",
+            storageBucket: "aihenkan-7f101.firebasestorage.app",
+            messagingSenderId: "695320170916",
+            appId: "1:695320170916:web:a1317704b02970b1c07131",
+            measurementId: "G-G4DW26MH4L"
         };
         // ▲▲▲
 
@@ -228,8 +237,5 @@
             }
         }).mount('#app');
     </script>
-    <!-- admax -->
-<script src="https://adm.shinobi.jp/s/243ffa4401dd31f9cda77e9d4bfe7662"></script>
-<!-- admax -->
 </body>
 </html>
