@@ -87,8 +87,8 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Chutes.ai API KEY (テスト用)
-        const SYSTEM_API_KEY = 'cpk_2e9498f987914bd697799c5e55961598.4b7f1379e5fd584a8708c89da5014f0d.ZLov3HxeOWBvj1aFDILjudjoRoOsoHSH'; // ←あなたのChutes.aiのキーを入れてください
+        // OpenRouter API KEY (テスト用)
+        const OPENROUTER_API_KEY = ''; // ←あなたのOpenRouterのキーを入れてください
 
         const { createApp } = Vue;
 
@@ -105,15 +105,20 @@
                     this.isLoading = true;
                     this.testResult = '';
                     try {
-                        if (!SYSTEM_API_KEY) { 
+                        if (!OPENROUTER_API_KEY) {
                             await new Promise(r => setTimeout(r, 1000));
                             this.testResult = "【デモ】APIキー未設定"; this.isLoading = false; return; 
                         }
-                        const response = await fetch('https://llm.chutes.ai/v1/chat/completions', {
+                        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SYSTEM_API_KEY}` },
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                                'HTTP-Referer': window.location.href, // OpenRouter requirement
+                                'X-Title': 'TextMimic' // OpenRouter requirement
+                            },
                             body: JSON.stringify({
-                                model: "openai/gpt-oss-20b",
+                                model: "tngtech/deepseek-r1t2-chimera:free",
                                 messages: [ { role: "system", content: this.form.systemPrompt }, { role: "user", content: this.testInput } ],
                                 temperature: 0.7
                             })
