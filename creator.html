@@ -118,7 +118,16 @@
                                 temperature: 0.7
                             })
                         });
+
+                        if (!response.ok) {
+                            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                        }
+
                         const data = await response.json();
+                        if (!data.choices || !data.choices.length || !data.choices[0].message) {
+                            console.error('Unexpected API response:', data);
+                            throw new Error('APIからの応答形式が予期しないものでした。');
+                        }
                         this.testResult = data.choices[0].message.content;
                     } catch (error) { alert("Error: " + error.message); } finally { this.isLoading = false; }
                 },
