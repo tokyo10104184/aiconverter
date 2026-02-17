@@ -6,6 +6,7 @@
     <title>TextMimic - AIテキスト変換プラットフォーム</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', 'Noto Sans JP', sans-serif; }
@@ -113,9 +114,13 @@
                             <div v-if="outputText" class="bg-indigo-50 rounded-xl p-6 border border-indigo-100 mt-4 animate-fade-in">
                                 <div class="text-slate-800 leading-relaxed whitespace-pre-wrap">{{ outputText }}</div>
                                 <!-- シェアボタン -->
-                                <div class="mt-4 pt-4 border-t border-indigo-200">
+                                <div class="mt-4 pt-4 border-t border-indigo-200 grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <button @click="shareOnTwitter" class="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition flex items-center justify-center gap-2">
-                                        <span>𝕏 でポストする</span>
+                                        <span>𝕏 でポスト</span>
+                                    </button>
+                                    <button @click="generateAndShareImage" :disabled="isGeneratingImage" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <span v-if="isGeneratingImage" class="loader w-4 h-4 border-2"></span>
+                                        <span v-else>📷 画像でシェア</span>
                                     </button>
                                 </div>
                             </div>
@@ -292,6 +297,59 @@
             </div>
         </div>
 
+        <!-- 画像生成用テンプレート (非表示) -->
+        <div id="share-image-template" class="fixed left-[-9999px] top-0 w-[600px] bg-white p-8 rounded-none pointer-events-none">
+            <div class="space-y-6">
+                <!-- Header -->
+                <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
+                    <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">M</div>
+                    <div>
+                        <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 leading-none">TextMimic</h1>
+                        <p class="text-xs text-slate-400 font-bold mt-1">AIテキスト変換プラットフォーム</p>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="space-y-4">
+                    <!-- Before -->
+                    <div class="relative">
+                        <span class="absolute -top-3 left-3 bg-slate-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-10">BEFORE</span>
+                        <div class="bg-slate-100 p-5 pt-6 rounded-2xl border border-slate-200 text-slate-600 text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                            {{ inputText || '（入力テキスト）' }}
+                        </div>
+                    </div>
+
+                    <!-- Arrow -->
+                    <div class="flex justify-center text-indigo-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+                    </div>
+
+                    <!-- After -->
+                    <div class="relative">
+                        <span class="absolute -top-3 left-3 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-10">AFTER</span>
+                        <div class="bg-indigo-50 p-6 pt-7 rounded-2xl border border-indigo-100 text-slate-900 text-lg font-bold leading-relaxed whitespace-pre-wrap shadow-sm">
+                            {{ outputText || '（変換後のテキスト）' }}
+                        </div>
+                        <!-- Maker Info Badge -->
+                        <div class="absolute bottom-3 right-3 flex items-center gap-2 bg-white/80 backdrop-blur px-3 py-1.5 rounded-lg border border-indigo-100 shadow-sm">
+                            <span class="text-xl">{{ currentMaker?.emoji }}</span>
+                            <span class="text-xs font-bold text-slate-700">{{ currentMaker?.title }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="flex justify-between items-end pt-4 border-t border-slate-100 mt-2">
+                    <div class="text-[10px] text-slate-400">
+                        Created by <span class="font-bold text-indigo-600">TextMimic</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400 font-mono">
+                        textmimic.web.app
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Firebase SDK -->
@@ -332,7 +390,8 @@
                     inputText: '',
                     outputText: '',
                     isLoading: false,
-                    isFetching: true
+                    isFetching: true,
+                    isGeneratingImage: false
                 }
             },
             async mounted() {
@@ -406,6 +465,74 @@
                     const shareText = `「${this.currentMaker.title}」で変換しました！\n\n${this.outputText.substring(0, 100)}...`;
                     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&hashtags=TextMimic,AIメーカー`;
                     window.open(url, '_blank');
+                },
+                async generateAndShareImage() {
+                    if (this.isGeneratingImage) return;
+                    this.isGeneratingImage = true;
+
+                    try {
+                        await this.$nextTick();
+                        const element = document.getElementById('share-image-template');
+                        if (!element) throw new Error('Template element not found');
+
+                        const canvas = await html2canvas(element, {
+                            scale: 2,
+                            useCORS: true,
+                            backgroundColor: null,
+                            logging: false
+                        });
+
+                        canvas.toBlob(async (blob) => {
+                            if (!blob) {
+                                alert('画像の生成に失敗しました。');
+                                this.isGeneratingImage = false;
+                                return;
+                            }
+
+                            const file = new File([blob], 'textmimic_share.png', { type: 'image/png' });
+                            const shareData = {
+                                files: [file],
+                                title: 'TextMimic変換結果',
+                                text: `「${this.currentMaker.title}」で変換しました！ #TextMimic`
+                            };
+
+                            // Web Share API (File Share) check
+                            if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+                                try {
+                                    await navigator.share(shareData);
+                                } catch (err) {
+                                    if (err.name !== 'AbortError') {
+                                        console.error('Share failed:', err);
+                                        this.downloadAndPrompt(blob);
+                                    }
+                                }
+                            } else {
+                                this.downloadAndPrompt(blob);
+                            }
+                            this.isGeneratingImage = false;
+                        }, 'image/png');
+
+                    } catch (e) {
+                        console.error(e);
+                        alert('エラーが発生しました: ' + e.message);
+                        this.isGeneratingImage = false;
+                    }
+                },
+                downloadAndPrompt(blob) {
+                    // 画像ダウンロード
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `textmimic_${Date.now()}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    // 案内とTwitter遷移
+                    if (confirm('画像を保存しました。\nX(Twitter)の投稿画面を開きますか？\n(画像は手動で添付してください)')) {
+                        this.shareOnTwitter();
+                    }
                 }
             }
         }).mount('#app');
