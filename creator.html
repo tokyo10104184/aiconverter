@@ -199,8 +199,11 @@
                             this.form.description = makerData.description;
                             this.form.systemPrompt = makerData.systemPrompt;
 
-                            this.remixOriginId = makerData.id;
-                            this.remixOriginTitle = makerData.title;
+                            // 公式メーカーの場合はリミックス元として記録しない（セキュリティルール対応）
+                            if (!makerData.id.startsWith('off_')) {
+                                this.remixOriginId = makerData.id;
+                                this.remixOriginTitle = makerData.title;
+                            }
                         } else {
                             console.error("Remix source not found");
                         }
