@@ -121,7 +121,23 @@
                         <div class="p-8 pb-4 text-center bg-gradient-to-b from-slate-50 to-white">
                             <div class="text-5xl mb-4">{{ currentMaker.emoji }}</div>
                             <h2 class="text-2xl font-bold text-slate-900">{{ currentMaker.title }}</h2>
+
+                            <!-- Remix Origin Credit -->
+                            <div v-if="currentMaker.remixOriginId" class="mt-1">
+                                <a :href="'?id=' + currentMaker.remixOriginId" class="text-xs text-indigo-500 hover:text-indigo-700 font-bold flex items-center justify-center gap-1">
+                                    <span>♻️ Remix of {{ currentMaker.remixOriginTitle || 'Original' }}</span>
+                                </a>
+                            </div>
+
                             <p class="text-slate-500 text-sm mt-2">{{ currentMaker.description }}</p>
+
+                            <!-- Remix This Button -->
+                            <div class="mt-4">
+                                <a :href="'creator.html?remix_id=' + currentMaker.id" class="text-xs text-slate-400 hover:text-indigo-600 border border-slate-200 px-3 py-1 rounded-full bg-white hover:bg-indigo-50 transition inline-flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.1l4 4-4 4"/><path d="M3 12.2v-2a4 4 0 0 1 4-4h12.8M7 21.9l-4-4 4-4"/><path d="M21 11.8v2a4 4 0 0 1-4 4H4.2"/></svg>
+                                    このメーカーをリミックス
+                                </a>
+                            </div>
                         </div>
                         <div class="p-6 md:p-8 space-y-6">
                             <textarea v-model="inputText" class="w-full h-32 p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all resize-none bg-slate-50" :placeholder="currentMaker.placeholder || 'ここにテキストを入力...'"></textarea>
@@ -145,6 +161,28 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Remixes List -->
+                    <div v-if="remixes.length > 0" class="mt-8 mb-8">
+                        <h3 class="text-sm font-bold text-slate-500 mb-4 flex items-center gap-2">
+                            <span>♻️</span> この作品のリミックス
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div
+                                v-for="remix in remixes"
+                                :key="remix.id"
+                                @click="selectMaker(remix)"
+                                class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition cursor-pointer flex items-center gap-3"
+                            >
+                                <span class="text-2xl">{{ remix.emoji }}</span>
+                                <div class="overflow-hidden">
+                                    <h4 class="font-bold text-slate-900 text-sm truncate">{{ remix.title }}</h4>
+                                    <p class="text-xs text-slate-500 truncate">{{ remix.description }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </transition>
         </main>
@@ -424,7 +462,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, orderBy, query, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, orderBy, query, limit, doc, getDoc, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { OPENROUTER_API_KEY, firebaseConfig } from './config.js';
 
@@ -473,7 +511,8 @@
                     outputText: '',
                     isLoading: false,
                     isFetching: true,
-                    isGeneratingImage: false
+                    isGeneratingImage: false,
+                    remixes: []
                 }
             },
             async mounted() {
@@ -482,11 +521,46 @@
                     this.authInitialized = true;
                 });
 
+                // Check for ID parameter
+                const params = new URLSearchParams(window.location.search);
+                const makerId = params.get('id');
+
                 // Firebaseからユーザー投稿を取得（最新20件）
                 try {
                     const q = query(collection(db, "makers"), orderBy("createdAt", "desc"), limit(20));
                     const querySnapshot = await getDocs(q);
                     this.userMakers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                    // Deep Link Handling
+                    if (makerId) {
+                        // Check Official
+                        const official = this.officialMakers.find(m => m.id === makerId);
+                        if (official) {
+                            this.selectMaker(official);
+                        } else {
+                            // Check Loaded User Makers first
+                            const loaded = this.userMakers.find(m => m.id === makerId);
+                            if (loaded) {
+                                this.selectMaker(loaded);
+                            } else {
+                                // Fetch specific doc
+                                try {
+                                    const docRef = doc(db, "makers", makerId);
+                                    const docSnap = await getDoc(docRef);
+                                    if (docSnap.exists()) {
+                                        this.selectMaker({ id: docSnap.id, ...docSnap.data() });
+                                    } else {
+                                        console.error("Maker not found");
+                                        // clean url
+                                        window.history.replaceState(null, '', window.location.pathname);
+                                    }
+                                } catch (e) {
+                                    console.error("Error fetching specific maker:", e);
+                                }
+                            }
+                        }
+                    }
+
                 } catch (e) {
                     console.error("Error loading makers:", e);
                 } finally {
@@ -498,10 +572,41 @@
                     this.currentMaker = maker;
                     this.inputText = '';
                     this.outputText = '';
+                    this.remixes = [];
                     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                    // Update URL if needed
+                    const url = new URL(window.location);
+                    if (url.searchParams.get('id') !== maker.id) {
+                        url.searchParams.set('id', maker.id);
+                        window.history.pushState({}, '', url);
+                    }
+
+                    // Fetch Remixes
+                    this.fetchRemixes(maker.id);
                 },
                 goHome() {
                     this.currentMaker = null;
+                    this.remixes = [];
+                    // Clear URL
+                    const url = new URL(window.location);
+                    url.searchParams.delete('id');
+                    window.history.pushState({}, '', url);
+                },
+                async fetchRemixes(makerId) {
+                    try {
+                        const q = query(
+                            collection(db, "makers"),
+                            where("remixOriginId", "==", makerId),
+                            orderBy("createdAt", "desc"),
+                            limit(10)
+                        );
+                        const querySnapshot = await getDocs(q);
+                        this.remixes = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    } catch (e) {
+                        // Index might not exist yet for this query
+                        console.error("Error loading remixes:", e);
+                    }
                 },
                 async convertText() {
                     if (!this.inputText) return;
