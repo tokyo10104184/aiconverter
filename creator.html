@@ -133,7 +133,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { OPENROUTER_API_KEY, firebaseConfig } from './config.js';
+        import { OPENROUTER_API_KEY, firebaseConfig, CATEGORIES } from './config.js';
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -144,7 +144,8 @@
         createApp({
             data() {
                 return {
-                    form: { emoji: '🐯', title: '', description: '', systemPrompt: '' },
+                    form: { emoji: '🐯', title: '', description: '', systemPrompt: '', category: 'other', tags: '' },
+                    categories: CATEGORIES,
                     testInput: '', testResult: '', isLoading: false, isPublishing: false,
                     remixOriginId: null,
                     remixOriginTitle: null,
@@ -198,6 +199,8 @@
                             this.form.title = makerData.title; // User can rename
                             this.form.description = makerData.description;
                             this.form.systemPrompt = makerData.systemPrompt;
+                            if (makerData.category) this.form.category = makerData.category;
+                            if (makerData.tags && Array.isArray(makerData.tags)) this.form.tags = makerData.tags.join(', ');
 
                             // 公式メーカーの場合はリミックス元として記録しない（セキュリティルール対応）
                             if (!makerData.id.startsWith('off_')) {
@@ -258,13 +261,20 @@
                     this.isPublishing = true;
                     try {
                         // Firestoreにデータを保存
+                        // Process tags
+                        const tagList = this.form.tags.split(',')
+                            .map(t => t.trim())
+                            .filter(t => t.length > 0);
+
                         const payload = {
                             ...this.form,
+                            tags: tagList, // Save as array
                             createdAt: serverTimestamp(), // 作成日時
                             authorId: this.user.uid,
                             authorName: this.user.displayName || this.user.email || 'Anonymous',
                             remixOriginId: this.remixOriginId || null,
-                            remixOriginTitle: this.remixOriginTitle || null
+                            remixOriginTitle: this.remixOriginTitle || null,
+                            likesCount: 0
                         };
 
                         await addDoc(collection(db, "makers"), payload);
