@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is the owner of the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Makers collection
+    match /makers/{makerId} {
+      // Anyone can read makers
+      allow read: if true;
+
+      // Only authenticated users can create
+      // Ensure authorId matches the authenticated user
+      allow create: if isAuthenticated()
+                    && request.resource.data.authorId == request.auth.uid
+                    // Ensure initial likes count is 0
+                    && (request.resource.data.likesCount == 0 || !("likesCount" in request.resource.data));
+
+      // Update rules:
+      // 1. Author can update their own maker (e.g. title, description)
+      // 2. Any authenticated user can update likesCount (increment/decrement by 1)
+      allow update: if isAuthenticated() && (
+        resource.data.authorId == request.auth.uid ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount']) &&
+          math.abs(request.resource.data.likesCount - resource.data.likesCount) == 1
+        )
+      );
+
+      // Only author can delete
+      allow delete: if isOwner(resource.data.authorId);
+    }
+
+    // User's liked makers subcollection
+    match /users/{userId}/likedMakers/{makerId} {
+      // Users can only read/write their own liked makers
+      allow read, write: if isOwner(userId);
+    }
+
+    // Reports collection
+    match /reports/{reportId} {
+      // Authenticated users can create reports
+      allow create: if isAuthenticated();
+      // Only admins should read/process reports (deny public access)
+      allow read, update, delete: if false;
+    }
+  }
+}
