@@ -681,7 +681,25 @@
                         const querySnapshot = await getDocs(q);
                         this.myMakers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     } catch (e) {
-                        console.error("Error fetching my makers:", e);
+                        // Fallback: if composite index is missing, fetch by author only and sort client-side.
+                        console.error("Error fetching my makers with orderBy, trying fallback:", e);
+                        try {
+                            const fallbackQuery = query(
+                                collection(db, "makers"),
+                                where("authorId", "==", this.user.uid)
+                            );
+                            const fallbackSnapshot = await getDocs(fallbackQuery);
+                            this.myMakers = fallbackSnapshot.docs
+                                .map(doc => ({ id: doc.id, ...doc.data() }))
+                                .sort((a, b) => {
+                                    const aSec = a.createdAt?.seconds || 0;
+                                    const bSec = b.createdAt?.seconds || 0;
+                                    return bSec - aSec;
+                                });
+                        } catch (fallbackError) {
+                            console.error("Fallback fetch for my makers also failed:", fallbackError);
+                            this.myMakers = [];
+                        }
                     } finally {
                         this.isFetchingMyMakers = false;
                     }
