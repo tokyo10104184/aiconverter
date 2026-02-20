@@ -167,7 +167,7 @@
                                          <span v-if="maker.category" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600">
                                             {{ categories.find(c => c.id === maker.category)?.label || maker.category }}
                                         </span>
-                                        <button @click="toggleLike(maker, $event)" class="flex items-center gap-1 text-slate-400 hover:text-pink-500 transition px-2 py-1">
+                                        <button @click="toggleLike(maker, $event)" :disabled="!!likingInProgress[maker.id]" :class="['flex items-center gap-1 transition px-2 py-1', likingInProgress[maker.id] ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-pink-500']">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" :fill="userLikes[maker.id] ? '#ec4899' : 'none'" :stroke="userLikes[maker.id] ? '#ec4899' : 'currentColor'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                                             <span class="text-xs font-bold">{{ maker.likesCount || 0 }}</span>
                                         </button>
@@ -255,7 +255,7 @@
                         >
                             <div class="flex items-start justify-between mb-4">
                                 <span class="text-4xl filter group-hover:scale-110 transition-transform duration-300">{{ maker.emoji }}</span>
-                                <button @click="toggleLike(maker, $event)" class="text-pink-500 px-2 py-1 flex items-center gap-1">
+                                <button @click="toggleLike(maker, $event)" :disabled="!!likingInProgress[maker.id]" :class="['px-2 py-1 flex items-center gap-1', likingInProgress[maker.id] ? 'text-slate-300 cursor-not-allowed' : 'text-pink-500']">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#ec4899" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                                     <span class="text-xs font-bold">{{ maker.likesCount || 0 }}</span>
                                 </button>
@@ -304,7 +304,7 @@
                         <div class="p-8 pb-4 text-center bg-gradient-to-b from-slate-50 to-white relative">
                             <!-- Actions -->
                             <div class="absolute top-4 right-4 flex gap-2">
-                                <button @click="toggleLike(currentMaker)" :disabled="isOfficialMaker(currentMaker)" :class="['transition p-2 rounded-full flex items-center gap-1 bg-white/50 backdrop-blur-sm shadow-sm border border-slate-100', isOfficialMaker(currentMaker) ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-pink-500 hover:bg-pink-50']" :title="isOfficialMaker(currentMaker) ? '公式メーカーはいいね対象外です' : 'いいね'">
+                                <button @click="toggleLike(currentMaker)" :disabled="isOfficialMaker(currentMaker) || !!likingInProgress[currentMaker.id]" :class="['transition p-2 rounded-full flex items-center gap-1 bg-white/50 backdrop-blur-sm shadow-sm border border-slate-100', (isOfficialMaker(currentMaker) || likingInProgress[currentMaker.id]) ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-pink-500 hover:bg-pink-50']" :title="isOfficialMaker(currentMaker) ? '公式メーカーはいいね対象外です' : (likingInProgress[currentMaker.id] ? 'いいね処理中...' : 'いいね')">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" :fill="userLikes[currentMaker.id] ? '#ec4899' : 'none'" :stroke="userLikes[currentMaker.id] ? '#ec4899' : 'currentColor'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                                     <span class="text-sm font-bold" :class="userLikes[currentMaker.id] ? 'text-pink-500' : ''">{{ currentMaker.likesCount || 0 }}</span>
                                 </button>
@@ -739,7 +739,8 @@
                     showReportBox: false,
                     reportReason: '',
                     reportError: '',
-                    isSubmittingReport: false
+                    isSubmittingReport: false,
+                    likingInProgress: {}
                 }
             },
             computed: {
@@ -999,6 +1000,7 @@
                 },
                 async toggleLike(maker, event) {
                     if (event) event.stopPropagation();
+                    if (this.likingInProgress[maker.id]) return;
                     if (this.isOfficialMaker(maker)) {
                         alert("公式メーカーにはいいねできません。");
                         return;
@@ -1011,6 +1013,7 @@
                     const makerRef = doc(db, "makers", maker.id);
                     const userLikeRef = doc(db, `users/${this.user.uid}/likedMakers/${maker.id}`);
                     const isLiked = !!this.userLikes[maker.id];
+                    this.likingInProgress[maker.id] = true;
 
                     // Optimistic
                     if (isLiked) {
@@ -1023,7 +1026,7 @@
 
                     try {
                         const wantToLike = !isLiked;
-                        await runTransaction(db, async (transaction) => {
+                        const result = await runTransaction(db, async (transaction) => {
                             const sfDoc = await transaction.get(makerRef);
                             // If maker doesn't exist, we can't like it.
                             if (!sfDoc.exists()) throw "Maker does not exist";
@@ -1036,14 +1039,20 @@
                                 if (!serverLiked) {
                                     transaction.set(userLikeRef, { likedAt: serverTimestamp() });
                                     transaction.update(makerRef, { likesCount: currentLikes + 1 });
+                                    return { liked: true, likesCount: currentLikes + 1 };
                                 }
+                                return { liked: true, likesCount: currentLikes };
                             } else {
                                 if (serverLiked) {
                                     transaction.delete(userLikeRef);
                                     transaction.update(makerRef, { likesCount: Math.max(0, currentLikes - 1) });
+                                    return { liked: false, likesCount: Math.max(0, currentLikes - 1) };
                                 }
+                                return { liked: false, likesCount: currentLikes };
                             }
                         });
+
+                        this.syncLikeStateAcrossViews(maker.id, result.liked, result.likesCount);
                     } catch (e) {
                         console.error("Like error:", e);
                         // Revert
@@ -1054,7 +1063,21 @@
                              delete this.userLikes[maker.id];
                              maker.likesCount--;
                         }
+                    } finally {
+                        delete this.likingInProgress[maker.id];
                     }
+                },
+                syncLikeStateAcrossViews(makerId, isLiked, likesCount) {
+                    if (isLiked) this.userLikes[makerId] = true;
+                    else delete this.userLikes[makerId];
+
+                    const patchMaker = (m) => {
+                        if (m?.id === makerId) m.likesCount = likesCount;
+                    };
+
+                    this.userMakers.forEach(patchMaker);
+                    this.likedMakers.forEach(patchMaker);
+                    patchMaker(this.currentMaker);
                 },
                 isOfficialMaker(maker) {
                     return maker?.id?.startsWith('off_');
