@@ -111,7 +111,7 @@
                     </div>
 
                     <!-- ① 公式ピックアップ -->
-                    <section class="mb-12">
+                    <section v-if="showOfficialSection" class="mb-12">
                         <h2 class="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                             <span>👑</span> 公式ピックアップ
                         </h2>
@@ -132,11 +132,23 @@
                         </div>
                     </section>
 
-                    <!-- ② 新着の投稿 (Firebase) -->
+                    <!-- ② 投稿 (Firebase) -->
                     <section>
-                        <h2 class="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                            <span>✨</span> みんなの投稿 (新着)
-                        </h2>
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <span>✨</span> みんなの投稿 ({{ selectedSort === 'popular' ? '人気順' : '新着順' }})
+                            </h2>
+                            <div class="inline-flex items-center bg-white border border-slate-200 rounded-xl p-1">
+                                <button
+                                    @click="selectSort('new')"
+                                    :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition', selectedSort === 'new' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800']"
+                                >新着順</button>
+                                <button
+                                    @click="selectSort('popular')"
+                                    :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition', selectedSort === 'popular' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800']"
+                                >人気順</button>
+                            </div>
+                        </div>
                         
                         <div v-if="isFetching" class="text-center py-10">
                             <div class="inline-block loader border-indigo-200 border-t-indigo-600 w-8 h-8"></div>
@@ -292,9 +304,12 @@
                         <div class="p-8 pb-4 text-center bg-gradient-to-b from-slate-50 to-white relative">
                             <!-- Actions -->
                             <div class="absolute top-4 right-4 flex gap-2">
-                                <button @click="toggleLike(currentMaker)" class="text-slate-400 hover:text-pink-500 transition p-2 rounded-full hover:bg-pink-50 flex items-center gap-1 bg-white/50 backdrop-blur-sm shadow-sm border border-slate-100" title="いいね">
+                                <button @click="toggleLike(currentMaker)" :disabled="isOfficialMaker(currentMaker)" :class="['transition p-2 rounded-full flex items-center gap-1 bg-white/50 backdrop-blur-sm shadow-sm border border-slate-100', isOfficialMaker(currentMaker) ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-pink-500 hover:bg-pink-50']" :title="isOfficialMaker(currentMaker) ? '公式メーカーはいいね対象外です' : 'いいね'">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" :fill="userLikes[currentMaker.id] ? '#ec4899' : 'none'" :stroke="userLikes[currentMaker.id] ? '#ec4899' : 'currentColor'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                                     <span class="text-sm font-bold" :class="userLikes[currentMaker.id] ? 'text-pink-500' : ''">{{ currentMaker.likesCount || 0 }}</span>
+                                </button>
+                                <button v-if="!isOfficialMaker(currentMaker)" @click="toggleReportBox" class="text-slate-400 hover:text-amber-600 transition p-2 rounded-full hover:bg-amber-50 bg-white/50 backdrop-blur-sm shadow-sm border border-slate-100" title="このメーカーを通報">
+                                    🚩
                                 </button>
                                 <button v-if="user && currentMaker.authorId === user.uid" @click="deleteMaker" class="text-slate-400 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50 bg-white/50 backdrop-blur-sm shadow-sm border border-slate-100" title="このメーカーを削除">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -322,6 +337,17 @@
                             </div>
                         </div>
                         <div class="p-6 md:p-8 space-y-6">
+                            <div v-if="showReportBox && !isOfficialMaker(currentMaker)" class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                                <h3 class="text-sm font-bold text-amber-800 mb-2">このメーカーを通報</h3>
+                                <textarea v-model="reportReason" class="w-full h-24 p-3 border border-amber-200 rounded-lg bg-white text-sm resize-none focus:ring-2 focus:ring-amber-300" placeholder="通報理由を具体的に入力してください"></textarea>
+                                <div class="mt-3 flex items-center justify-between gap-2">
+                                    <span v-if="reportError" class="text-xs text-red-500 font-bold">{{ reportError }}</span>
+                                    <span v-else class="text-xs text-slate-500">※悪質な通報はアカウント制限対象になる場合があります。</span>
+                                    <button @click="submitReport" :disabled="isSubmittingReport" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-lg disabled:opacity-60">
+                                        {{ isSubmittingReport ? '送信中...' : '通報を送信' }}
+                                    </button>
+                                </div>
+                            </div>
                             <textarea v-model="inputText" class="w-full h-32 p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all resize-none bg-slate-50" :placeholder="currentMaker.placeholder || 'ここにテキストを入力...'"></textarea>
                             <button @click="convertText" :disabled="!inputText || isLoading" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg transition flex justify-center items-center gap-2">
                                 <span v-if="isLoading" class="loader"></span>
@@ -644,7 +670,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, orderBy, query, limit, doc, getDoc, where, deleteDoc, runTransaction, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, orderBy, query, limit, doc, getDoc, where, deleteDoc, runTransaction, setDoc, serverTimestamp, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { OPENROUTER_API_KEY, firebaseConfig, CATEGORIES } from './config.js';
 
@@ -701,6 +727,7 @@
                     selectedCategory: null,
                     searchTag: null,
                     searchQuery: '',
+                    selectedSort: 'new',
 
                     isFetchingMyMakers: false,
                     inputText: '',
@@ -708,7 +735,11 @@
                     isLoading: false,
                     isFetching: true,
                     isGeneratingImage: false,
-                    remixes: []
+                    remixes: [],
+                    showReportBox: false,
+                    reportReason: '',
+                    reportError: '',
+                    isSubmittingReport: false
                 }
             },
             computed: {
@@ -723,6 +754,9 @@
                         );
                     }
                     return makers;
+                },
+                showOfficialSection() {
+                    return !this.searchQuery && !this.selectedCategory && !this.searchTag;
                 }
             },
             async mounted() {
@@ -780,12 +814,13 @@
                         // Note: Complex queries require composite indexes.
                         // If index is missing, we fallback to simple queries + client side sort.
 
+                        const sortField = this.selectedSort === 'popular' ? 'likesCount' : 'createdAt';
                         if (this.selectedCategory) {
-                             q = query(makersRef, where("category", "==", this.selectedCategory), orderBy("createdAt", "desc"), limit(limitCount));
+                             q = query(makersRef, where("category", "==", this.selectedCategory), orderBy(sortField, "desc"), limit(limitCount));
                         } else if (this.searchTag) {
-                            q = query(makersRef, where("tags", "array-contains", this.searchTag), orderBy("createdAt", "desc"), limit(limitCount));
+                            q = query(makersRef, where("tags", "array-contains", this.searchTag), orderBy(sortField, "desc"), limit(limitCount));
                         } else {
-                            q = query(makersRef, orderBy("createdAt", "desc"), limit(limitCount));
+                            q = query(makersRef, orderBy(sortField, "desc"), limit(limitCount));
                         }
 
                         try {
@@ -803,7 +838,11 @@
                             }
                             const snap = await getDocs(fallbackQ);
                              this.userMakers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                             this.userMakers.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                             if (this.selectedSort === 'popular') {
+                                this.userMakers.sort((a,b) => (b.likesCount || 0) - (a.likesCount || 0));
+                             } else {
+                                this.userMakers.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                             }
                         }
                     } catch (e) {
                         console.error("Error loading makers:", e);
@@ -831,12 +870,20 @@
                     this.searchQuery = '';
                     this.fetchMakers();
                 },
+                selectSort(sortType) {
+                    if (this.selectedSort === sortType) return;
+                    this.selectedSort = sortType;
+                    this.fetchMakers();
+                },
                 selectMaker(maker) {
                     this.currentMaker = maker;
                     this.viewMode = 'play';
                     this.inputText = '';
                     this.outputText = '';
                     this.remixes = [];
+                    this.showReportBox = false;
+                    this.reportReason = '';
+                    this.reportError = '';
                     window.scrollTo({ top: 0, behavior: 'smooth' });
 
                     // Add to history
@@ -952,6 +999,10 @@
                 },
                 async toggleLike(maker, event) {
                     if (event) event.stopPropagation();
+                    if (this.isOfficialMaker(maker)) {
+                        alert("公式メーカーにはいいねできません。");
+                        return;
+                    }
                     if (!this.user) {
                         this.showAuthModal = true;
                         return;
@@ -996,6 +1047,49 @@
                              delete this.userLikes[maker.id];
                              maker.likesCount--;
                         }
+                    }
+                },
+                isOfficialMaker(maker) {
+                    return maker?.id?.startsWith('off_');
+                },
+                toggleReportBox() {
+                    this.showReportBox = !this.showReportBox;
+                    if (!this.showReportBox) {
+                        this.reportReason = '';
+                        this.reportError = '';
+                    }
+                },
+                async submitReport() {
+                    if (!this.currentMaker || this.isOfficialMaker(this.currentMaker)) return;
+                    if (!this.user) {
+                        this.showAuthModal = true;
+                        return;
+                    }
+                    const reason = this.reportReason.trim();
+                    if (reason.length < 5) {
+                        this.reportError = '通報理由は5文字以上で入力してください。';
+                        return;
+                    }
+                    this.isSubmittingReport = true;
+                    this.reportError = '';
+                    try {
+                        await addDoc(collection(db, "reports"), {
+                            makerId: this.currentMaker.id,
+                            makerTitle: this.currentMaker.title || '',
+                            makerAuthorId: this.currentMaker.authorId || null,
+                            reason,
+                            reporterId: this.user.uid,
+                            reporterName: this.user.displayName || this.user.email || 'Anonymous',
+                            createdAt: serverTimestamp()
+                        });
+                        this.reportReason = '';
+                        this.showReportBox = false;
+                        alert('通報を受け付けました。ご協力ありがとうございます。');
+                    } catch (e) {
+                        console.error('Report error:', e);
+                        this.reportError = '通報の送信に失敗しました。時間をおいて再度お試しください。';
+                    } finally {
+                        this.isSubmittingReport = false;
                     }
                 },
                 async fetchRemixes(makerId) {
