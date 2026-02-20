@@ -1,0 +1,12 @@
+{
+  "name": "textmimic",
+  "version": "1.0.0",
+  "description": "AI text conversion platform",
+  "scripts": {
+    "build": "node generate-env.js"
+  },
+  "type": "module",
+  "devDependencies": {
+    "dotenv": "^16.6.1"
+  }
+}
