@@ -37,15 +37,31 @@
                         ログイン
                     </button>
                 </div>
-                <div v-else class="flex items-center gap-3">
-                    <div class="hidden md:block text-xs font-bold text-right text-slate-500">
-                        {{ user.displayName || user.email }}
+                <div v-else class="relative">
+                    <button @click="showUserMenu = !showUserMenu" class="flex items-center gap-2 hover:bg-slate-100 p-1.5 pr-3 rounded-full transition group">
+                        <div class="w-8 h-8 rounded-full bg-slate-200 overflow-hidden border border-slate-200 group-hover:border-indigo-300 transition">
+                            <img v-if="user.photoURL" :src="user.photoURL" class="w-full h-full object-cover">
+                            <div v-else class="w-full h-full flex items-center justify-center text-slate-500 font-bold text-xs">{{ user.email?.charAt(0).toUpperCase() }}</div>
+                        </div>
+                        <div class="hidden md:block text-xs font-bold text-right text-slate-500 group-hover:text-slate-800">
+                            {{ user.displayName || user.email }}
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-slate-600"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+
+                    <!-- Dropdown Menu -->
+                    <div v-if="showUserMenu" class="absolute top-12 right-0 bg-white rounded-xl shadow-xl border border-slate-100 w-48 py-2 z-50 animate-fade-in">
+                        <button @click="goToMyMakers(); showUserMenu = false" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-bold flex items-center gap-2">
+                            <span>📝</span> 自分の投稿一覧
+                        </button>
+                        <div class="border-t border-slate-100 my-1"></div>
+                        <button @click="logout" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 font-bold flex items-center gap-2">
+                            <span>🚪</span> ログアウト
+                        </button>
                     </div>
-                    <div class="w-8 h-8 rounded-full bg-slate-200 overflow-hidden border border-slate-200">
-                        <img v-if="user.photoURL" :src="user.photoURL" class="w-full h-full object-cover">
-                        <div v-else class="w-full h-full flex items-center justify-center text-slate-500 font-bold text-xs">{{ user.email?.charAt(0).toUpperCase() }}</div>
-                    </div>
-                    <button @click="logout" class="text-xs text-slate-400 hover:text-red-500 transition">ログアウト</button>
+
+                    <!-- Overlay to close menu -->
+                    <div v-if="showUserMenu" @click="showUserMenu = false" class="fixed inset-0 z-40 bg-transparent cursor-default"></div>
                 </div>
 
                 <a href="creator.html" class="bg-slate-900 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-slate-800 transition">
@@ -57,7 +73,7 @@
         <main class="flex-1 p-4 md:p-6">
             <transition name="fade" mode="out-in">
                 <!-- HOME画面 -->
-                <div v-if="!currentMaker" key="home">
+                <div v-if="viewMode === 'home'" key="home">
                     <div class="text-center py-8 md:py-12">
                         <h1 class="text-3xl md:text-5xl font-extrabold text-slate-900 mb-4 leading-tight">
                             言葉を遊ぼう。<br><span class="text-indigo-600">AIテキスト変換</span>
@@ -114,11 +130,56 @@
                     </section>
                 </div>
 
+                <!-- MY MAKERS画面 -->
+                <div v-else-if="viewMode === 'my_makers'" key="my_makers">
+                    <div class="mb-8 flex items-center gap-4">
+                        <button @click="goHome" class="flex items-center text-slate-500 hover:text-indigo-600 transition font-medium">← ホームに戻る</button>
+                        <h1 class="text-2xl font-bold text-slate-900">自分の投稿一覧</h1>
+                    </div>
+
+                    <div v-if="isFetchingMyMakers" class="text-center py-10">
+                        <div class="inline-block loader border-indigo-200 border-t-indigo-600 w-8 h-8"></div>
+                    </div>
+
+                    <div v-else-if="myMakers.length === 0" class="text-center py-12 bg-white rounded-2xl border border-slate-200">
+                        <div class="text-5xl mb-4">📝</div>
+                        <h3 class="text-lg font-bold text-slate-900 mb-2">まだ投稿がありません</h3>
+                        <p class="text-slate-500 mb-6">オリジナルのAIメーカーを作ってみましょう！</p>
+                        <a href="creator.html" class="bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl hover:bg-indigo-700 transition inline-block">
+                            + 新しく作る
+                        </a>
+                    </div>
+
+                    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div
+                            v-for="maker in myMakers"
+                            :key="maker.id"
+                            @click="selectMaker(maker)"
+                            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg transition-all cursor-pointer group ring-1 ring-indigo-50"
+                        >
+                            <div class="flex items-start justify-between mb-4">
+                                <span class="text-4xl filter group-hover:scale-110 transition-transform duration-300">{{ maker.emoji }}</span>
+                                <span class="text-xs font-bold px-2 py-1 rounded bg-indigo-100 text-indigo-600 uppercase">MY MAKER</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900 mb-2 group-hover:text-indigo-600 line-clamp-1">{{ maker.title }}</h3>
+                            <p class="text-sm text-slate-500 leading-relaxed line-clamp-2 mb-4">{{ maker.description }}</p>
+                            <div class="text-xs text-slate-400 font-mono">
+                                {{ new Date(maker.createdAt?.seconds * 1000).toLocaleDateString() }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- PLAY画面 -->
-                <div v-else key="play" class="max-w-2xl mx-auto">
+                <div v-else-if="viewMode === 'play'" key="play" class="max-w-2xl mx-auto">
                     <button @click="goHome" class="mb-6 flex items-center text-slate-500 hover:text-indigo-600 transition font-medium">← 一覧に戻る</button>
                     <div class="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
-                        <div class="p-8 pb-4 text-center bg-gradient-to-b from-slate-50 to-white">
+                        <div class="p-8 pb-4 text-center bg-gradient-to-b from-slate-50 to-white relative">
+                            <!-- Delete Button (Owner Only) -->
+                            <button v-if="user && currentMaker.authorId === user.uid" @click="deleteMaker" class="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50" title="このメーカーを削除">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
+
                             <div class="text-5xl mb-4">{{ currentMaker.emoji }}</div>
                             <h2 class="text-2xl font-bold text-slate-900">{{ currentMaker.title }}</h2>
 
@@ -462,7 +523,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, orderBy, query, limit, doc, getDoc, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, orderBy, query, limit, doc, getDoc, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { OPENROUTER_API_KEY, firebaseConfig } from './config.js';
 
@@ -481,6 +542,7 @@
                     showOperatorModal: false,
                     showSettingsModal: false,
                     showAuthModal: false,
+                    showUserMenu: false,
                     // Auth State
                     user: null,
                     authInitialized: false,
@@ -507,6 +569,9 @@
                     ],
                     userMakers: [], // ② ユーザー投稿（Firebaseから取得）
                     currentMaker: null,
+                    viewMode: 'home', // 'home', 'play', 'my_makers'
+                    myMakers: [],
+                    isFetchingMyMakers: false,
                     inputText: '',
                     outputText: '',
                     isLoading: false,
@@ -570,6 +635,7 @@
             methods: {
                 selectMaker(maker) {
                     this.currentMaker = maker;
+                    this.viewMode = 'play';
                     this.inputText = '';
                     this.outputText = '';
                     this.remixes = [];
@@ -586,12 +652,39 @@
                     this.fetchRemixes(maker.id);
                 },
                 goHome() {
+                    this.viewMode = 'home';
                     this.currentMaker = null;
                     this.remixes = [];
                     // Clear URL
                     const url = new URL(window.location);
                     url.searchParams.delete('id');
                     window.history.pushState({}, '', url);
+                },
+                goToMyMakers() {
+                    this.viewMode = 'my_makers';
+                    this.currentMaker = null;
+                    this.fetchMyMakers();
+                    // Clear URL ID
+                    const url = new URL(window.location);
+                    url.searchParams.delete('id');
+                    window.history.pushState({}, '', url);
+                },
+                async fetchMyMakers() {
+                    if (!this.user) return;
+                    this.isFetchingMyMakers = true;
+                    try {
+                        const q = query(
+                            collection(db, "makers"),
+                            where("authorId", "==", this.user.uid),
+                            orderBy("createdAt", "desc")
+                        );
+                        const querySnapshot = await getDocs(q);
+                        this.myMakers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    } catch (e) {
+                        console.error("Error fetching my makers:", e);
+                    } finally {
+                        this.isFetchingMyMakers = false;
+                    }
                 },
                 async fetchRemixes(makerId) {
                     try {
@@ -695,6 +788,22 @@
                         await signOut(auth);
                     } catch (error) {
                         alert("ログアウト失敗: " + error.message);
+                    }
+                },
+                async deleteMaker() {
+                    if (!confirm("本当にこのメーカーを削除しますか？\nこの操作は取り消せません。")) return;
+
+                    try {
+                        await deleteDoc(doc(db, "makers", this.currentMaker.id));
+                        alert("削除しました。");
+                        // Refresh lists
+                        this.userMakers = this.userMakers.filter(m => m.id !== this.currentMaker.id);
+                        this.myMakers = this.myMakers.filter(m => m.id !== this.currentMaker.id);
+
+                        this.goToMyMakers();
+                    } catch (e) {
+                        console.error(e);
+                        alert("削除に失敗しました: " + e.message);
                     }
                 },
                 shareOnTwitter() {
