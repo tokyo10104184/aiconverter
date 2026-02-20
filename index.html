@@ -80,6 +80,36 @@
                         </h1>
                     </div>
 
+                    <!-- Search & Filter -->
+                    <div class="mb-10 max-w-3xl mx-auto space-y-4">
+                        <div class="relative">
+                            <input v-model="searchQuery" type="text" class="w-full p-4 pl-12 rounded-2xl border border-slate-200 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none text-lg" placeholder="メーカーを検索...">
+                            <svg class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        </div>
+
+                        <!-- Categories -->
+                        <div class="flex flex-wrap gap-2 justify-center">
+                            <button
+                                @click="selectCategory(null)"
+                                :class="['px-4 py-2 rounded-full text-sm font-bold transition', !selectedCategory && !searchTag ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50']"
+                            >すべて</button>
+                            <button
+                                v-for="cat in categories"
+                                :key="cat.id"
+                                @click="selectCategory(cat.id)"
+                                :class="['px-4 py-2 rounded-full text-sm font-bold transition', selectedCategory === cat.id ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50']"
+                            >
+                                {{ cat.label }}
+                            </button>
+                        </div>
+
+                        <!-- Active Filters Message -->
+                        <div v-if="searchTag" class="flex items-center justify-center gap-2">
+                            <span class="text-sm font-bold text-slate-600">タグ: #{{ searchTag }}</span>
+                            <button @click="clearFilters" class="text-xs text-red-500 hover:underline">クリア</button>
+                        </div>
+                    </div>
+
                     <!-- ① 公式ピックアップ -->
                     <section class="mb-12">
                         <h2 class="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
@@ -114,17 +144,34 @@
 
                         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <div 
-                                v-for="maker in userMakers" 
+                                v-for="maker in filteredMakers"
                                 :key="maker.id"
                                 @click="selectMaker(maker)"
-                                class="bg-slate-50 p-6 rounded-2xl shadow-sm border border-slate-200 hover:bg-white hover:shadow-lg transition-all cursor-pointer group"
+                                class="bg-slate-50 p-6 rounded-2xl shadow-sm border border-slate-200 hover:bg-white hover:shadow-lg transition-all cursor-pointer group relative"
                             >
                                 <div class="flex items-start justify-between mb-4">
                                     <span class="text-4xl filter group-hover:scale-110 transition-transform duration-300">{{ maker.emoji }}</span>
-                                    <span class="text-xs font-bold px-2 py-1 rounded bg-slate-200 text-slate-500 uppercase">USER</span>
+                                    <div class="flex flex-col items-end gap-1">
+                                         <span v-if="maker.category" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600">
+                                            {{ categories.find(c => c.id === maker.category)?.label || maker.category }}
+                                        </span>
+                                        <button @click="toggleLike(maker, $event)" class="flex items-center gap-1 text-slate-400 hover:text-pink-500 transition px-2 py-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" :fill="userLikes[maker.id] ? '#ec4899' : 'none'" :stroke="userLikes[maker.id] ? '#ec4899' : 'currentColor'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                                            <span class="text-xs font-bold">{{ maker.likesCount || 0 }}</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 <h3 class="text-lg font-bold text-slate-900 mb-2 group-hover:text-indigo-600 line-clamp-1">{{ maker.title }}</h3>
-                                <p class="text-sm text-slate-500 leading-relaxed line-clamp-2">{{ maker.description }}</p>
+                                <p class="text-sm text-slate-500 leading-relaxed line-clamp-2 mb-3">{{ maker.description }}</p>
+
+                                <div v-if="maker.tags && maker.tags.length" class="flex flex-wrap gap-1 mt-auto">
+                                    <span
+                                        v-for="tag in maker.tags"
+                                        :key="tag"
+                                        @click="selectTag(tag, $event)"
+                                        class="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded-full text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition"
+                                    >#{{ tag }}</span>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -170,15 +217,89 @@
                     </div>
                 </div>
 
+                <!-- LIKED MAKERS画面 -->
+                <div v-else-if="viewMode === 'liked'" key="liked">
+                    <div class="mb-8 flex items-center gap-4">
+                        <button @click="goHome" class="flex items-center text-slate-500 hover:text-indigo-600 transition font-medium">← ホームに戻る</button>
+                        <h1 class="text-2xl font-bold text-slate-900">お気に入り</h1>
+                    </div>
+
+                    <div v-if="isFetchingMyMakers" class="text-center py-10">
+                        <div class="inline-block loader border-indigo-200 border-t-indigo-600 w-8 h-8"></div>
+                    </div>
+
+                    <div v-else-if="likedMakers.length === 0" class="text-center py-12 bg-white rounded-2xl border border-slate-200">
+                        <div class="text-5xl mb-4">💖</div>
+                        <h3 class="text-lg font-bold text-slate-900 mb-2">まだお気に入りがありません</h3>
+                        <p class="text-slate-500 mb-6">気に入ったメーカーに「いいね」してみましょう！</p>
+                    </div>
+
+                    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div
+                            v-for="maker in likedMakers"
+                            :key="maker.id"
+                            @click="selectMaker(maker)"
+                            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg transition-all cursor-pointer group ring-1 ring-pink-50"
+                        >
+                            <div class="flex items-start justify-between mb-4">
+                                <span class="text-4xl filter group-hover:scale-110 transition-transform duration-300">{{ maker.emoji }}</span>
+                                <button @click="toggleLike(maker, $event)" class="text-pink-500 px-2 py-1 flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#ec4899" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                                    <span class="text-xs font-bold">{{ maker.likesCount || 0 }}</span>
+                                </button>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900 mb-2 group-hover:text-indigo-600 line-clamp-1">{{ maker.title }}</h3>
+                            <p class="text-sm text-slate-500 leading-relaxed line-clamp-2 mb-4">{{ maker.description }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HISTORY画面 -->
+                <div v-else-if="viewMode === 'history'" key="history">
+                    <div class="mb-8 flex items-center gap-4">
+                        <button @click="goHome" class="flex items-center text-slate-500 hover:text-indigo-600 transition font-medium">← ホームに戻る</button>
+                        <h1 class="text-2xl font-bold text-slate-900">閲覧履歴</h1>
+                    </div>
+
+                    <div v-if="historyMakers.length === 0" class="text-center py-12 bg-white rounded-2xl border border-slate-200">
+                        <div class="text-5xl mb-4">🕒</div>
+                        <h3 class="text-lg font-bold text-slate-900 mb-2">履歴がありません</h3>
+                    </div>
+
+                    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div
+                            v-for="maker in historyMakers"
+                            :key="maker.id"
+                            @click="selectMaker(maker)"
+                            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg transition-all cursor-pointer group"
+                        >
+                            <div class="flex items-start justify-between mb-4">
+                                <span class="text-4xl filter group-hover:scale-110 transition-transform duration-300">{{ maker.emoji }}</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900 mb-2 group-hover:text-indigo-600 line-clamp-1">{{ maker.title }}</h3>
+                            <p class="text-sm text-slate-500 leading-relaxed line-clamp-2 mb-4">{{ maker.description }}</p>
+                            <div class="text-xs text-slate-400 font-mono">
+                                Viewed: {{ new Date(maker.viewedAt).toLocaleDateString() }} {{ new Date(maker.viewedAt).toLocaleTimeString() }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- PLAY画面 -->
                 <div v-else-if="viewMode === 'play'" key="play" class="max-w-2xl mx-auto">
                     <button @click="goHome" class="mb-6 flex items-center text-slate-500 hover:text-indigo-600 transition font-medium">← 一覧に戻る</button>
                     <div class="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
                         <div class="p-8 pb-4 text-center bg-gradient-to-b from-slate-50 to-white relative">
-                            <!-- Delete Button (Owner Only) -->
-                            <button v-if="user && currentMaker.authorId === user.uid" @click="deleteMaker" class="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50" title="このメーカーを削除">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                            </button>
+                            <!-- Actions -->
+                            <div class="absolute top-4 right-4 flex gap-2">
+                                <button @click="toggleLike(currentMaker)" class="text-slate-400 hover:text-pink-500 transition p-2 rounded-full hover:bg-pink-50 flex items-center gap-1 bg-white/50 backdrop-blur-sm shadow-sm border border-slate-100" title="いいね">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" :fill="userLikes[currentMaker.id] ? '#ec4899' : 'none'" :stroke="userLikes[currentMaker.id] ? '#ec4899' : 'currentColor'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                                    <span class="text-sm font-bold" :class="userLikes[currentMaker.id] ? 'text-pink-500' : ''">{{ currentMaker.likesCount || 0 }}</span>
+                                </button>
+                                <button v-if="user && currentMaker.authorId === user.uid" @click="deleteMaker" class="text-slate-400 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50 bg-white/50 backdrop-blur-sm shadow-sm border border-slate-100" title="このメーカーを削除">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            </div>
 
                             <div class="text-5xl mb-4">{{ currentMaker.emoji }}</div>
                             <h2 class="text-2xl font-bold text-slate-900">{{ currentMaker.title }}</h2>
@@ -523,9 +644,9 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, orderBy, query, limit, doc, getDoc, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, orderBy, query, limit, doc, getDoc, where, deleteDoc, runTransaction, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { OPENROUTER_API_KEY, firebaseConfig } from './config.js';
+        import { OPENROUTER_API_KEY, firebaseConfig, CATEGORIES } from './config.js';
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -569,8 +690,18 @@
                     ],
                     userMakers: [], // ② ユーザー投稿（Firebaseから取得）
                     currentMaker: null,
-                    viewMode: 'home', // 'home', 'play', 'my_makers'
+                    viewMode: 'home', // 'home', 'play', 'my_makers', 'liked', 'history'
                     myMakers: [],
+                    likedMakers: [],
+                    historyMakers: [],
+                    userLikes: {}, // { makerId: true }
+
+                    // Search/Filter State
+                    categories: CATEGORIES,
+                    selectedCategory: null,
+                    searchTag: null,
+                    searchQuery: '',
+
                     isFetchingMyMakers: false,
                     inputText: '',
                     outputText: '',
@@ -580,24 +711,37 @@
                     remixes: []
                 }
             },
+            computed: {
+                filteredMakers() {
+                    let makers = this.userMakers;
+                    if (this.searchQuery) {
+                        const q = this.searchQuery.toLowerCase();
+                        makers = makers.filter(m =>
+                            m.title.toLowerCase().includes(q) ||
+                            m.description.toLowerCase().includes(q) ||
+                            (m.tags && m.tags.some(t => t.toLowerCase().includes(q)))
+                        );
+                    }
+                    return makers;
+                }
+            },
             async mounted() {
                 onAuthStateChanged(auth, (user) => {
                     this.user = user;
                     this.authInitialized = true;
+                    if (user) this.fetchUserLikes();
                 });
 
                 // Check for ID parameter
                 const params = new URLSearchParams(window.location.search);
                 const makerId = params.get('id');
 
-                // Firebaseからユーザー投稿を取得（最新20件）
-                try {
-                    const q = query(collection(db, "makers"), orderBy("createdAt", "desc"), limit(20));
-                    const querySnapshot = await getDocs(q);
-                    this.userMakers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Load initial makers
+                await this.fetchMakers();
 
-                    // Deep Link Handling
-                    if (makerId) {
+                // Deep Link Handling
+                if (makerId) {
+                    try {
                         // Check Official
                         const official = this.officialMakers.find(m => m.id === makerId);
                         if (official) {
@@ -609,30 +753,84 @@
                                 this.selectMaker(loaded);
                             } else {
                                 // Fetch specific doc
-                                try {
-                                    const docRef = doc(db, "makers", makerId);
-                                    const docSnap = await getDoc(docRef);
-                                    if (docSnap.exists()) {
-                                        this.selectMaker({ id: docSnap.id, ...docSnap.data() });
-                                    } else {
-                                        console.error("Maker not found");
-                                        // clean url
-                                        window.history.replaceState(null, '', window.location.pathname);
-                                    }
-                                } catch (e) {
-                                    console.error("Error fetching specific maker:", e);
+                                const docRef = doc(db, "makers", makerId);
+                                const docSnap = await getDoc(docRef);
+                                if (docSnap.exists()) {
+                                    this.selectMaker({ id: docSnap.id, ...docSnap.data() });
+                                } else {
+                                    console.error("Maker not found");
+                                    window.history.replaceState(null, '', window.location.pathname);
                                 }
                             }
                         }
+                    } catch (e) {
+                        console.error("Error handling deep link:", e);
                     }
-
-                } catch (e) {
-                    console.error("Error loading makers:", e);
-                } finally {
-                    this.isFetching = false;
                 }
             },
             methods: {
+                async fetchMakers() {
+                    this.isFetching = true;
+                    this.userMakers = [];
+                    try {
+                        let q;
+                        const makersRef = collection(db, "makers");
+                        const limitCount = 50;
+
+                        // Note: Complex queries require composite indexes.
+                        // If index is missing, we fallback to simple queries + client side sort.
+
+                        if (this.selectedCategory) {
+                             q = query(makersRef, where("category", "==", this.selectedCategory), orderBy("createdAt", "desc"), limit(limitCount));
+                        } else if (this.searchTag) {
+                            q = query(makersRef, where("tags", "array-contains", this.searchTag), orderBy("createdAt", "desc"), limit(limitCount));
+                        } else {
+                            q = query(makersRef, orderBy("createdAt", "desc"), limit(limitCount));
+                        }
+
+                        try {
+                            const querySnapshot = await getDocs(q);
+                            this.userMakers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        } catch (e) {
+                            console.warn("Query failed (likely missing index), trying fallback...", e);
+                            let fallbackQ;
+                            if (this.selectedCategory) {
+                                fallbackQ = query(makersRef, where("category", "==", this.selectedCategory), limit(limitCount));
+                            } else if (this.searchTag) {
+                                fallbackQ = query(makersRef, where("tags", "array-contains", this.searchTag), limit(limitCount));
+                            } else {
+                                fallbackQ = query(makersRef, limit(limitCount));
+                            }
+                            const snap = await getDocs(fallbackQ);
+                             this.userMakers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                             this.userMakers.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                        }
+                    } catch (e) {
+                        console.error("Error loading makers:", e);
+                    } finally {
+                        this.isFetching = false;
+                    }
+                },
+                selectCategory(catId) {
+                    if (this.selectedCategory === catId) this.selectedCategory = null;
+                    else this.selectedCategory = catId;
+                    this.searchTag = null; // Reset tag
+                    this.fetchMakers();
+                },
+                selectTag(tag, event) {
+                    if (event) event.stopPropagation();
+                    this.searchTag = tag;
+                    this.selectedCategory = null; // Reset category
+                    this.fetchMakers();
+                    this.viewMode = 'home';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                },
+                clearFilters() {
+                    this.selectedCategory = null;
+                    this.searchTag = null;
+                    this.searchQuery = '';
+                    this.fetchMakers();
+                },
                 selectMaker(maker) {
                     this.currentMaker = maker;
                     this.viewMode = 'play';
@@ -640,6 +838,9 @@
                     this.outputText = '';
                     this.remixes = [];
                     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                    // Add to history
+                    this.addToHistory(maker);
 
                     // Update URL if needed
                     const url = new URL(window.location);
@@ -664,7 +865,21 @@
                     this.viewMode = 'my_makers';
                     this.currentMaker = null;
                     this.fetchMyMakers();
-                    // Clear URL ID
+                    this.clearUrlId();
+                },
+                goToLikedMakers() {
+                    this.viewMode = 'liked';
+                    this.currentMaker = null;
+                    this.fetchLikedMakersList();
+                    this.clearUrlId();
+                },
+                goToHistory() {
+                    this.viewMode = 'history';
+                    this.currentMaker = null;
+                    this.fetchHistoryMakers();
+                    this.clearUrlId();
+                },
+                clearUrlId() {
                     const url = new URL(window.location);
                     url.searchParams.delete('id');
                     window.history.pushState({}, '', url);
@@ -673,35 +888,114 @@
                     if (!this.user) return;
                     this.isFetchingMyMakers = true;
                     try {
-                        const q = query(
-                            collection(db, "makers"),
-                            where("authorId", "==", this.user.uid),
-                            orderBy("createdAt", "desc")
-                        );
-                        const querySnapshot = await getDocs(q);
-                        this.myMakers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    } catch (e) {
-                        // Fallback: if composite index is missing, fetch by author only and sort client-side.
-                        console.error("Error fetching my makers with orderBy, trying fallback:", e);
-                        try {
-                            const fallbackQuery = query(
-                                collection(db, "makers"),
-                                where("authorId", "==", this.user.uid)
-                            );
-                            const fallbackSnapshot = await getDocs(fallbackQuery);
-                            this.myMakers = fallbackSnapshot.docs
-                                .map(doc => ({ id: doc.id, ...doc.data() }))
-                                .sort((a, b) => {
-                                    const aSec = a.createdAt?.seconds || 0;
-                                    const bSec = b.createdAt?.seconds || 0;
-                                    return bSec - aSec;
-                                });
-                        } catch (fallbackError) {
-                            console.error("Fallback fetch for my makers also failed:", fallbackError);
-                            this.myMakers = [];
+                        const q = query(collection(db, "makers"), where("authorId", "==", this.user.uid));
+                        const snap = await getDocs(q);
+                        this.myMakers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                            .sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                    } catch (e) { console.error(e); } finally { this.isFetchingMyMakers = false; }
+                },
+                async fetchLikedMakersList() {
+                    if (!this.user) return;
+                    this.isFetchingMyMakers = true; // reusing flag
+                    try {
+                        // Get liked IDs
+                        const likesQ = query(collection(db, `users/${this.user.uid}/likedMakers`));
+                        const likesSnap = await getDocs(likesQ);
+                        const ids = likesSnap.docs.map(d => d.id);
+
+                        if (ids.length === 0) {
+                            this.likedMakers = [];
+                            return;
                         }
-                    } finally {
-                        this.isFetchingMyMakers = false;
+
+                        // Fetch makers (Firestore 'in' query supports up to 10)
+                        // If more than 10, need multiple queries. For now simple parallel fetch
+                        const promises = ids.map(id => getDoc(doc(db, "makers", id)));
+                        const docs = await Promise.all(promises);
+                        this.likedMakers = docs
+                            .filter(d => d.exists())
+                            .map(d => ({ id: d.id, ...d.data() }));
+                    } catch (e) { console.error(e); } finally { this.isFetchingMyMakers = false; }
+                },
+                addToHistory(maker) {
+                    try {
+                        let history = JSON.parse(localStorage.getItem('textmimic_history') || '[]');
+                        // Remove if exists
+                        history = history.filter(m => m.id !== maker.id);
+                        // Add to front
+                        history.unshift({
+                            id: maker.id,
+                            title: maker.title,
+                            emoji: maker.emoji,
+                            description: maker.description,
+                            viewedAt: Date.now()
+                        });
+                        // Limit
+                        if (history.length > 50) history.pop();
+                        localStorage.setItem('textmimic_history', JSON.stringify(history));
+                    } catch(e) { console.error(e); }
+                },
+                fetchHistoryMakers() {
+                     try {
+                        this.historyMakers = JSON.parse(localStorage.getItem('textmimic_history') || '[]');
+                    } catch(e) { console.error(e); }
+                },
+                async fetchUserLikes() {
+                    if (!this.user) return;
+                    try {
+                        const q = query(collection(db, `users/${this.user.uid}/likedMakers`));
+                        const snap = await getDocs(q);
+                        const likes = {};
+                        snap.forEach(doc => { likes[doc.id] = true; });
+                        this.userLikes = likes;
+                    } catch (e) { console.error(e); }
+                },
+                async toggleLike(maker, event) {
+                    if (event) event.stopPropagation();
+                    if (!this.user) {
+                        this.showAuthModal = true;
+                        return;
+                    }
+
+                    const makerRef = doc(db, "makers", maker.id);
+                    const userLikeRef = doc(db, `users/${this.user.uid}/likedMakers/${maker.id}`);
+                    const isLiked = !!this.userLikes[maker.id];
+
+                    // Optimistic
+                    if (isLiked) {
+                        delete this.userLikes[maker.id];
+                        maker.likesCount = Math.max(0, (maker.likesCount || 0) - 1);
+                    } else {
+                        this.userLikes[maker.id] = true;
+                        maker.likesCount = (maker.likesCount || 0) + 1;
+                    }
+
+                    try {
+                        await runTransaction(db, async (transaction) => {
+                            const sfDoc = await transaction.get(makerRef);
+                            // If maker doesn't exist, we can't like it.
+                            if (!sfDoc.exists()) throw "Maker does not exist";
+
+                            const likeDoc = await transaction.get(userLikeRef);
+
+                            if (likeDoc.exists()) {
+                                transaction.delete(userLikeRef);
+                                transaction.update(makerRef, { likesCount: (sfDoc.data().likesCount || 0) - 1 });
+                            } else {
+                                transaction.set(userLikeRef, { likedAt: serverTimestamp() });
+                                transaction.update(makerRef, { likesCount: (sfDoc.data().likesCount || 0) + 1 });
+                            }
+                        });
+                    } catch (e) {
+                        console.error("Like error:", e);
+                        // Revert
+                        if (isLiked) {
+                             this.userLikes[maker.id] = true;
+                             maker.likesCount++;
+                        } else {
+                             delete this.userLikes[maker.id];
+                             maker.likesCount--;
+                        }
                     }
                 },
                 async fetchRemixes(makerId) {
