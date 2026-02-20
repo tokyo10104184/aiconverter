@@ -1022,19 +1022,26 @@
                     }
 
                     try {
+                        const wantToLike = !isLiked;
                         await runTransaction(db, async (transaction) => {
                             const sfDoc = await transaction.get(makerRef);
                             // If maker doesn't exist, we can't like it.
                             if (!sfDoc.exists()) throw "Maker does not exist";
 
                             const likeDoc = await transaction.get(userLikeRef);
+                            const serverLiked = likeDoc.exists();
+                            const currentLikes = sfDoc.data().likesCount || 0;
 
-                            if (likeDoc.exists()) {
-                                transaction.delete(userLikeRef);
-                                transaction.update(makerRef, { likesCount: (sfDoc.data().likesCount || 0) - 1 });
+                            if (wantToLike) {
+                                if (!serverLiked) {
+                                    transaction.set(userLikeRef, { likedAt: serverTimestamp() });
+                                    transaction.update(makerRef, { likesCount: currentLikes + 1 });
+                                }
                             } else {
-                                transaction.set(userLikeRef, { likedAt: serverTimestamp() });
-                                transaction.update(makerRef, { likesCount: (sfDoc.data().likesCount || 0) + 1 });
+                                if (serverLiked) {
+                                    transaction.delete(userLikeRef);
+                                    transaction.update(makerRef, { likesCount: Math.max(0, currentLikes - 1) });
+                                }
                             }
                         });
                     } catch (e) {
