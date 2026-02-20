@@ -105,6 +105,11 @@
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">説明文</label>
                             <input v-model="form.description" type="text" class="w-full p-3 border border-slate-300 rounded-xl" placeholder="短い説明...">
                         </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">タグ</label>
+                            <input v-model="form.tags" type="text" class="w-full p-3 border border-slate-300 rounded-xl" placeholder="例：ビジネス, メール, 丁寧">
+                            <p class="text-[11px] text-slate-400 mt-1">カンマ区切りで複数入力できます。</p>
+                        </div>
                     </div>
                 </div>
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 ring-2 ring-indigo-50">
