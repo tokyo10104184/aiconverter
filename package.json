@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "description": "AI text conversion platform",
   "scripts": {
-    "build": "node generate-env.js"
+    "build": "node build.js"
   },
   "type": "module",
+  "dependencies": {},
   "devDependencies": {
-    "dotenv": "^16.6.1"
+    "dotenv": "^16.4.5"
   }
 }
