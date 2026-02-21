@@ -1,5 +1,6 @@
 // ▼▼▼ Config ▼▼▼
-export const OPENROUTER_API_KEY = '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'; // ここにOpenRouterのAPIキーを入力してください
+// 環境変数からAPIキーを取得 (ローカル/Vercel環境)
+export const OPENROUTER_API_KEY = (window.ENV && window.ENV.OPENROUTER_API_KEY) || '';
 
 export const firebaseConfig = {
     apiKey: "AIzaSyCgSNCKuPIdi-7P7hJDv3NcCKp_cjPRlB4",

@@ -1,0 +1,13 @@
+{
+  "name": "textmimic",
+  "version": "1.0.0",
+  "description": "AI text conversion platform",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "type": "module",
+  "dependencies": {},
+  "devDependencies": {
+    "dotenv": "^16.4.5"
+  }
+}
