@@ -309,7 +309,7 @@
                                     <span class="text-sm font-bold" :class="userLikes[currentMaker.id] ? 'text-pink-500' : ''">{{ currentMaker.likesCount || 0 }}</span>
                                 </button>
                                 <button v-if="!isOfficialMaker(currentMaker)" @click="toggleReportBox" class="text-slate-400 hover:text-amber-600 transition p-2 rounded-full hover:bg-amber-50 bg-white/50 backdrop-blur-sm shadow-sm border border-slate-100" title="このメーカーを通報">
-                                    🚩
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
                                 </button>
                                 <button v-if="user && currentMaker.authorId === user.uid" @click="deleteMaker" class="text-slate-400 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50 bg-white/50 backdrop-blur-sm shadow-sm border border-slate-100" title="このメーカーを削除">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
