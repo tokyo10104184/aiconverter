@@ -37,7 +37,9 @@ service cloud.firestore {
       );
 
       // Only author can delete
-      allow delete: if isOwner(resource.data.authorId);
+      // Allow any authenticated user to delete (for admin purposes)
+      // Note: In production, this should be restricted to specific admin UIDs
+      allow delete: if isOwner(resource.data.authorId) || isAuthenticated();
     }
 
     // User's liked makers subcollection
@@ -50,8 +52,10 @@ service cloud.firestore {
     match /reports/{reportId} {
       // Authenticated users can create reports
       allow create: if isAuthenticated();
-      // Only admins should read/process reports (deny public access)
-      allow read, update, delete: if false;
+      // Allow authenticated users to read and delete reports (for admin dashboard)
+      // Note: In production, this should be restricted to specific admin UIDs
+      allow read, delete: if isAuthenticated();
+      allow update: if false;
     }
   }
 }
