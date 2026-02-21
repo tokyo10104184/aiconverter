@@ -16,6 +16,10 @@
         .loader { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid #fff; width: 20px; height: 20px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .modal-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+        .marquee-container { overflow: hidden; white-space: nowrap; position: relative; }
+        .marquee-content { display: inline-flex; animation: marquee 40s linear infinite; }
+        .marquee-content:hover { animation-play-state: paused; }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
@@ -78,6 +82,73 @@
                         <h1 class="text-3xl md:text-5xl font-extrabold text-slate-900 mb-4 leading-tight">
                             言葉を遊ぼう。<br><span class="text-indigo-600">AIテキスト変換</span>
                         </h1>
+                    </div>
+
+                    <!-- Timeline Section -->
+                    <div v-if="globalSharedResults.length > 0" class="mb-10 w-full overflow-hidden relative group">
+                         <div class="marquee-container w-full">
+                            <div class="marquee-content gap-4 py-2 px-4">
+                                <!-- Original List -->
+                                <div
+                                    v-for="result in globalSharedResults"
+                                    :key="'a-'+result.id"
+                                    class="inline-block w-72 bg-white p-4 rounded-xl border border-slate-200 shadow-sm whitespace-normal align-top hover:border-indigo-300 transition cursor-pointer"
+                                    @click="goToMakerFromSharedResult(result)"
+                                >
+                                    <div class="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+                                        <span class="text-xl">{{ result.makerEmoji }}</span>
+                                        <span class="text-xs font-bold text-slate-900 truncate">{{ result.makerTitle }}</span>
+                                    </div>
+                                    <div class="space-y-2 mb-3">
+                                        <div class="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-1 rounded">Before: {{ result.inputText.substring(0, 20) }}...</div>
+                                        <div class="text-xs text-slate-800 font-bold bg-indigo-50 px-2 py-1 rounded line-clamp-2">After: {{ result.outputText }}</div>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-1.5">
+                                             <div class="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                                                {{ result.authorName.charAt(0).toUpperCase() }}
+                                            </div>
+                                            <span class="text-[10px] font-bold text-slate-500 truncate max-w-[80px]">{{ result.authorName }}</span>
+                                        </div>
+                                        <button @click.stop="toggleLikeResult(result, $event)" class="text-slate-400 hover:text-pink-500 flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" :fill="userLikedResults[result.id] ? '#ec4899' : 'none'" :stroke="userLikedResults[result.id] ? '#ec4899' : 'currentColor'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                                            <span class="text-[10px] font-bold" :class="userLikedResults[result.id] ? 'text-pink-500' : ''">{{ result.likesCount || 0 }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Duplicate List for Loop -->
+                                <div
+                                    v-for="result in globalSharedResults"
+                                    :key="'b-'+result.id"
+                                    class="inline-block w-72 bg-white p-4 rounded-xl border border-slate-200 shadow-sm whitespace-normal align-top hover:border-indigo-300 transition cursor-pointer"
+                                    @click="goToMakerFromSharedResult(result)"
+                                >
+                                     <div class="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+                                        <span class="text-xl">{{ result.makerEmoji }}</span>
+                                        <span class="text-xs font-bold text-slate-900 truncate">{{ result.makerTitle }}</span>
+                                    </div>
+                                    <div class="space-y-2 mb-3">
+                                        <div class="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-1 rounded">Before: {{ result.inputText.substring(0, 20) }}...</div>
+                                        <div class="text-xs text-slate-800 font-bold bg-indigo-50 px-2 py-1 rounded line-clamp-2">After: {{ result.outputText }}</div>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-1.5">
+                                             <div class="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                                                {{ result.authorName.charAt(0).toUpperCase() }}
+                                            </div>
+                                            <span class="text-[10px] font-bold text-slate-500 truncate max-w-[80px]">{{ result.authorName }}</span>
+                                        </div>
+                                        <button @click.stop="toggleLikeResult(result, $event)" class="text-slate-400 hover:text-pink-500 flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" :fill="userLikedResults[result.id] ? '#ec4899' : 'none'" :stroke="userLikedResults[result.id] ? '#ec4899' : 'currentColor'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                                            <span class="text-[10px] font-bold" :class="userLikedResults[result.id] ? 'text-pink-500' : ''">{{ result.likesCount || 0 }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                         </div>
+                         <!-- Fade Gradients -->
+                         <div class="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-slate-50 to-transparent pointer-events-none"></div>
+                         <div class="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none"></div>
                     </div>
 
                     <!-- Search & Filter -->
@@ -357,13 +428,60 @@
                             <div v-if="outputText" class="bg-indigo-50 rounded-xl p-6 border border-indigo-100 mt-4 animate-fade-in">
                                 <div class="text-slate-800 leading-relaxed whitespace-pre-wrap">{{ outputText }}</div>
                                 <!-- シェアボタン -->
-                                <div class="mt-4 pt-4 border-t border-indigo-200 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div class="mt-4 pt-4 border-t border-indigo-200 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <button @click="shareResultOnSite" :disabled="isSharingResult" class="w-full bg-teal-600 text-white font-bold py-3 rounded-xl hover:bg-teal-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <span v-if="isSharingResult" class="loader w-4 h-4 border-2"></span>
+                                        <span v-else>🌐 サイトで共有</span>
+                                    </button>
                                     <button @click="shareOnTwitter" class="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition flex items-center justify-center gap-2">
                                         <span>𝕏 でポスト</span>
                                     </button>
                                     <button @click="generateAndShareImage" :disabled="isGeneratingImage" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                         <span v-if="isGeneratingImage" class="loader w-4 h-4 border-2"></span>
                                         <span v-else>📷 画像でシェア</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shared Results List -->
+                    <div v-if="makerSharedResults.length > 0" class="mt-8 mb-8">
+                        <h3 class="text-sm font-bold text-slate-500 mb-4 flex items-center gap-2">
+                            <span>💬</span> みんなの変換結果
+                        </h3>
+                        <div class="space-y-4">
+                            <div
+                                v-for="result in makerSharedResults"
+                                :key="result.id"
+                                class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200"
+                            >
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                                            {{ result.authorName.charAt(0).toUpperCase() }}
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-600">{{ result.authorName }}</span>
+                                    </div>
+                                    <div class="text-[10px] text-slate-400">
+                                        {{ result.createdAt?.seconds ? new Date(result.createdAt.seconds * 1000).toLocaleDateString() : 'Now' }}
+                                    </div>
+                                </div>
+
+                                <div class="bg-slate-50 p-3 rounded-lg border border-slate-100 mb-3">
+                                    <div class="text-xs text-slate-400 font-bold mb-1">Before</div>
+                                    <div class="text-sm text-slate-600 line-clamp-2">{{ result.inputText }}</div>
+                                </div>
+
+                                <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-100 mb-3">
+                                    <div class="text-xs text-indigo-400 font-bold mb-1">After</div>
+                                    <div class="text-sm text-slate-800 font-medium whitespace-pre-wrap">{{ result.outputText }}</div>
+                                </div>
+
+                                <div class="flex justify-end">
+                                    <button @click="toggleLikeResult(result, $event)" class="flex items-center gap-1.5 text-slate-400 hover:text-pink-500 transition px-2 py-1 rounded-full hover:bg-pink-50">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" :fill="userLikedResults[result.id] ? '#ec4899' : 'none'" :stroke="userLikedResults[result.id] ? '#ec4899' : 'currentColor'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                                        <span class="text-xs font-bold" :class="userLikedResults[result.id] ? 'text-pink-500' : ''">{{ result.likesCount || 0 }}</span>
                                     </button>
                                 </div>
                             </div>
@@ -743,7 +861,12 @@
                     reportReason: '',
                     reportError: '',
                     isSubmittingReport: false,
-                    likingInProgress: {}
+                    likingInProgress: {},
+                    // Shared Results
+                    globalSharedResults: [],
+                    makerSharedResults: [],
+                    userLikedResults: {},
+                    isSharingResult: false
                 }
             },
             computed: {
@@ -767,8 +890,13 @@
                 onAuthStateChanged(auth, (user) => {
                     this.user = user;
                     this.authInitialized = true;
-                    if (user) this.fetchUserLikes();
+                    if (user) {
+                        this.fetchUserLikes();
+                        this.fetchUserLikedResults();
+                    }
                 });
+
+                this.fetchGlobalSharedResults();
 
                 // Check for ID parameter
                 const params = new URLSearchParams(window.location.search);
@@ -902,6 +1030,7 @@
 
                     // Fetch Remixes
                     this.fetchRemixes(maker.id);
+                    this.fetchMakerSharedResults(maker.id);
                 },
                 goHome() {
                     this.viewMode = 'home';
@@ -1317,6 +1446,142 @@
                     // 案内とTwitter遷移
                     if (confirm('画像を保存しました。\nX(Twitter)の投稿画面を開きますか？\n(画像は手動で添付してください)')) {
                         this.shareOnTwitter();
+                    }
+                },
+                async fetchGlobalSharedResults() {
+                    try {
+                        const q = query(collection(db, "shared_results"), orderBy("createdAt", "desc"), limit(20));
+                        const snap = await getDocs(q);
+                        this.globalSharedResults = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    } catch (e) { console.error("Error fetching global results:", e); }
+                },
+                async fetchMakerSharedResults(makerId) {
+                    this.makerSharedResults = [];
+                    try {
+                        const q = query(collection(db, "shared_results"), where("makerId", "==", makerId), orderBy("createdAt", "desc"), limit(20));
+                        const snap = await getDocs(q);
+                        this.makerSharedResults = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    } catch (e) {
+                         console.warn("Index missing for shared results? Trying without sort.", e);
+                         const q = query(collection(db, "shared_results"), where("makerId", "==", makerId), limit(20));
+                         const snap = await getDocs(q);
+                         this.makerSharedResults = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                            .sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                    }
+                },
+                async shareResultOnSite() {
+                    if (!this.user) {
+                        this.showAuthModal = true;
+                        return;
+                    }
+                    if (!this.inputText || !this.outputText) return;
+                    if (!confirm("変換前と変換後の文章がサイト上に公開されます。\n個人情報などが含まれていないことを確認してください。\n公開しますか？")) return;
+
+                    this.isSharingResult = true;
+                    try {
+                        const docRef = await addDoc(collection(db, "shared_results"), {
+                            makerId: this.currentMaker.id,
+                            makerTitle: this.currentMaker.title,
+                            makerEmoji: this.currentMaker.emoji,
+                            inputText: this.inputText,
+                            outputText: this.outputText,
+                            authorId: this.user.uid,
+                            authorName: this.user.displayName || this.user.email || 'Anonymous',
+                            createdAt: serverTimestamp(),
+                            likesCount: 0
+                        });
+                        alert("公開しました！");
+                        // Refresh to show immediately
+                        this.fetchMakerSharedResults(this.currentMaker.id);
+                        this.fetchGlobalSharedResults();
+                    } catch (e) {
+                        console.error("Share error:", e);
+                        alert("公開に失敗しました: " + e.message);
+                    } finally {
+                        this.isSharingResult = false;
+                    }
+                },
+                async fetchUserLikedResults() {
+                    if (!this.user) return;
+                    try {
+                        const q = query(collection(db, `users/${this.user.uid}/likedResults`));
+                        const snap = await getDocs(q);
+                        const likes = {};
+                        snap.forEach(doc => { likes[doc.id] = true; });
+                        this.userLikedResults = likes;
+                    } catch (e) { console.error(e); }
+                },
+                async toggleLikeResult(result, event) {
+                    if (event) event.stopPropagation();
+                    if (!this.user) {
+                        this.showAuthModal = true;
+                        return;
+                    }
+
+                    const resultRef = doc(db, "shared_results", result.id);
+                    const likeRef = doc(db, `users/${this.user.uid}/likedResults/${result.id}`);
+                    const isLiked = !!this.userLikedResults[result.id];
+
+                    // Optimistic update
+                    if (isLiked) {
+                        delete this.userLikedResults[result.id];
+                        result.likesCount = Math.max(0, (result.likesCount || 0) - 1);
+                    } else {
+                        this.userLikedResults[result.id] = true;
+                        result.likesCount = (result.likesCount || 0) + 1;
+                    }
+
+                    try {
+                        await runTransaction(db, async (transaction) => {
+                            const resDoc = await transaction.get(resultRef);
+                            if (!resDoc.exists()) throw "Document does not exist";
+
+                            const likeDoc = await transaction.get(likeRef);
+                            const serverLiked = likeDoc.exists();
+                            const currentLikes = resDoc.data().likesCount || 0;
+
+                            if (!isLiked) { // Want to like
+                                if (!serverLiked) {
+                                    transaction.set(likeRef, { likedAt: serverTimestamp() });
+                                    transaction.update(resultRef, { likesCount: currentLikes + 1 });
+                                }
+                            } else { // Want to unlike
+                                if (serverLiked) {
+                                    transaction.delete(likeRef);
+                                    transaction.update(resultRef, { likesCount: Math.max(0, currentLikes - 1) });
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        console.error("Like error:", e);
+                        // Revert
+                        if (isLiked) {
+                            this.userLikedResults[result.id] = true;
+                            result.likesCount++;
+                        } else {
+                             delete this.userLikedResults[result.id];
+                             result.likesCount--;
+                        }
+                    }
+                },
+                async goToMakerFromSharedResult(result) {
+                    let maker = this.officialMakers.find(m => m.id === result.makerId) ||
+                                this.userMakers.find(m => m.id === result.makerId);
+
+                    if (!maker) {
+                        try {
+                            const docRef = doc(db, "makers", result.makerId);
+                            const docSnap = await getDoc(docRef);
+                            if (docSnap.exists()) {
+                                maker = { id: docSnap.id, ...docSnap.data() };
+                            }
+                        } catch(e) { console.error(e); }
+                    }
+
+                    if (maker) {
+                        this.selectMaker(maker);
+                    } else {
+                        alert("このメーカーは削除された可能性があります。");
                     }
                 }
             }
