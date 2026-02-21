@@ -12,66 +12,90 @@
     <div id="app" class="max-w-5xl mx-auto bg-white p-6 rounded-xl shadow space-y-10">
         <div class="flex justify-between items-center">
             <h1 class="text-2xl font-bold">👮‍♂️ 管理ダッシュボード</h1>
-            <a href="index.html" class="text-blue-600 hover:underline">サイトに戻る</a>
+            <div class="flex items-center gap-4">
+                <button v-if="user" @click="logout" class="text-red-600 font-bold text-sm hover:underline">ログアウト</button>
+                <a href="index.html" class="text-blue-600 hover:underline">サイトに戻る</a>
+            </div>
         </div>
 
-        <section>
-            <p class="mb-4 text-sm text-slate-500">
-                登録されているユーザー投稿一覧です。不適切なコンテンツは削除してください。<br>
-                <span class="text-red-500 font-bold">※削除すると元に戻せません。</span>
-            </p>
-
-            <div v-if="loading" class="text-center py-10">読み込み中...</div>
-
-            <div v-else class="overflow-x-auto">
-                <table class="w-full border-collapse text-left text-sm">
-                    <thead>
-                        <tr class="bg-slate-50 border-b">
-                            <th class="p-3">ID</th>
-                            <th class="p-3">タイトル</th>
-                            <th class="p-3">プロンプト (一部)</th>
-                            <th class="p-3">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="maker in makers" :key="maker.id" class="border-b hover:bg-slate-50">
-                            <td class="p-3 font-mono text-xs text-slate-400">{{ maker.id }}</td>
-                            <td class="p-3 font-bold flex items-center gap-2">
-                                <span class="text-xl">{{ maker.emoji }}</span>
-                                {{ maker.title }}
-                            </td>
-                            <td class="p-3 text-slate-500 truncate max-w-xs">{{ maker.systemPrompt }}</td>
-                            <td class="p-3">
-                                <button @click="deleteMaker(maker.id)" class="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 font-bold text-xs">
-                                    削除 🗑
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <div v-if="makers.length === 0" class="text-center py-10 text-slate-400">
-                    投稿はありません。
+        <!-- Login Form -->
+        <div v-if="!user" class="max-w-md mx-auto py-10">
+            <h2 class="text-center text-lg font-bold mb-4">管理者ログイン</h2>
+            <form @submit.prevent="login" class="space-y-4">
+                <div>
+                    <label for="email" class="block text-sm font-bold text-slate-700 mb-1">Email</label>
+                    <input id="email" v-model="email" type="email" class="w-full p-3 border rounded-lg bg-slate-50" required>
                 </div>
-            </div>
-        </section>
+                <div>
+                    <label for="password" class="block text-sm font-bold text-slate-700 mb-1">Password</label>
+                    <input id="password" v-model="password" type="password" class="w-full p-3 border rounded-lg bg-slate-50" required>
+                </div>
+                <div v-if="errorMessage" class="text-red-500 text-sm font-bold bg-red-50 p-3 rounded">{{ errorMessage }}</div>
+                <button type="submit" class="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition">
+                    ログイン
+                </button>
+            </form>
+        </div>
 
-        <section>
-            <h2 class="text-xl font-bold mb-3">🚩 通報リスト</h2>
-            <div v-if="loadingReports" class="text-center py-8 text-slate-500">通報を読み込み中...</div>
-            <ul v-else class="space-y-3">
-                <li v-for="report in reports" :key="report.id" class="border border-amber-200 bg-amber-50 rounded-xl p-4">
-                    <div class="flex items-center justify-between gap-3 mb-2">
-                        <div class="text-sm font-bold text-slate-900">{{ report.makerTitle || 'タイトル不明' }} <span class="text-xs text-slate-400">({{ report.makerId }})</span></div>
-                        <div class="text-xs text-slate-500">{{ formatDate(report.createdAt) }}</div>
+        <div v-else class="space-y-10">
+            <section>
+                <p class="mb-4 text-sm text-slate-500">
+                    登録されているユーザー投稿一覧です。不適切なコンテンツは削除してください。<br>
+                    <span class="text-red-500 font-bold">※削除すると元に戻せません。</span>
+                </p>
+
+                <div v-if="loading" class="text-center py-10">読み込み中...</div>
+
+                <div v-else class="overflow-x-auto">
+                    <table class="w-full border-collapse text-left text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 border-b">
+                                <th class="p-3">ID</th>
+                                <th class="p-3">タイトル</th>
+                                <th class="p-3">プロンプト (一部)</th>
+                                <th class="p-3">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="maker in makers" :key="maker.id" class="border-b hover:bg-slate-50">
+                                <td class="p-3 font-mono text-xs text-slate-400">{{ maker.id }}</td>
+                                <td class="p-3 font-bold flex items-center gap-2">
+                                    <span class="text-xl">{{ maker.emoji }}</span>
+                                    {{ maker.title }}
+                                </td>
+                                <td class="p-3 text-slate-500 truncate max-w-xs">{{ maker.systemPrompt }}</td>
+                                <td class="p-3">
+                                    <button @click="deleteMaker(maker.id)" class="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 font-bold text-xs">
+                                        削除 🗑
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div v-if="makers.length === 0" class="text-center py-10 text-slate-400">
+                        投稿はありません。
                     </div>
-                    <p class="text-sm text-slate-700 whitespace-pre-wrap">{{ report.reason }}</p>
-                    <p class="text-xs text-slate-500 mt-2">報告者: {{ report.reporterName || report.reporterId || '匿名' }}</p>
-                </li>
-            </ul>
-            <div v-if="!loadingReports && reports.length === 0" class="text-center py-8 text-slate-400">
-                通報はまだありません。
-            </div>
-        </section>
+                </div>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-bold mb-3">🚩 通報リスト</h2>
+                <div v-if="loadingReports" class="text-center py-8 text-slate-500">通報を読み込み中...</div>
+                <ul v-else class="space-y-3">
+                    <li v-for="report in reports" :key="report.id" class="border border-amber-200 bg-amber-50 rounded-xl p-4">
+                        <div class="flex items-center justify-between gap-3 mb-2">
+                            <div class="text-sm font-bold text-slate-900">{{ report.makerTitle || 'タイトル不明' }} <span class="text-xs text-slate-400">({{ report.makerId }})</span></div>
+                            <div class="text-xs text-slate-500">{{ formatDate(report.createdAt) }}</div>
+                        </div>
+                        <p class="text-sm text-slate-700 whitespace-pre-wrap">{{ report.reason }}</p>
+                        <p class="text-xs text-slate-500 mt-2">報告者: {{ report.reporterName || report.reporterId || '匿名' }}</p>
+                    </li>
+                </ul>
+                <div v-if="!loadingReports && reports.length === 0" class="text-center py-8 text-slate-400">
+                    通報はまだありません。
+                </div>
+            </section>
+        </div>
     </div>
 
     <!-- Environment Variables -->
@@ -80,10 +104,12 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, getDocs, orderBy, query, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { firebaseConfig } from './config.js';
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
 
         const { createApp } = Vue;
 
@@ -92,14 +118,44 @@
                 return {
                     makers: [],
                     reports: [],
-                    loading: true,
-                    loadingReports: true
+                    loading: false,
+                    loadingReports: false,
+                    authInitialized: false,
+                    user: null,
+                    email: '',
+                    password: '',
+                    errorMessage: ''
                 }
             },
-            async mounted() {
-                await Promise.all([this.fetchMakers(), this.fetchReports()]);
+            mounted() {
+                onAuthStateChanged(auth, (user) => {
+                    this.user = user;
+                    this.authInitialized = true;
+                    if (user) {
+                        this.fetchMakers();
+                        this.fetchReports();
+                    } else {
+                        this.makers = [];
+                        this.reports = [];
+                    }
+                });
             },
             methods: {
+                async login() {
+                    this.errorMessage = '';
+                    try {
+                        await signInWithEmailAndPassword(auth, this.email, this.password);
+                    } catch (e) {
+                        this.errorMessage = "ログインエラー: " + e.message;
+                    }
+                },
+                async logout() {
+                    try {
+                        await signOut(auth);
+                    } catch (e) {
+                        alert("ログアウト失敗: " + e.message);
+                    }
+                },
                 async fetchMakers() {
                     this.loading = true;
                     try {
