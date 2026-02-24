@@ -106,19 +106,19 @@
                             <input v-model="form.description" type="text" class="w-full p-3 border border-slate-300 rounded-xl" placeholder="短い説明...">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">タグ (複数選択可)</label>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">ジャンル (1つ選択)</label>
                             <div class="flex flex-wrap gap-2">
                                 <button
-                                    v-for="tag in tagsList"
-                                    :key="tag"
+                                    v-for="cat in categories"
+                                    :key="cat.id"
                                     type="button"
-                                    @click="toggleTag(tag)"
-                                    :class="['px-3 py-1.5 rounded-full text-xs font-bold border transition', form.tags.includes(tag) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300']"
+                                    @click="selectCategory(cat)"
+                                    :class="['px-3 py-1.5 rounded-full text-xs font-bold border transition', form.category === cat.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300']"
                                 >
-                                    #{{ tag }}
+                                    {{ cat.label }}
                                 </button>
                             </div>
-                            <p class="text-[11px] text-slate-400 mt-1">5つまで選択できます。</p>
+                            <p class="text-[11px] text-slate-400 mt-1">最も適切なジャンルを選んでください。</p>
                         </div>
                     </div>
                 </div>
@@ -151,7 +151,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { OPENROUTER_API_KEY, firebaseConfig, CATEGORIES, TAGS } from './config.js';
+        import { OPENROUTER_API_KEY, firebaseConfig, CATEGORIES } from './config.js';
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -164,7 +164,6 @@
                 return {
                     form: { emoji: '🐯', title: '', description: '', systemPrompt: '', category: 'other', tags: [] },
                     categories: CATEGORIES,
-                    tagsList: TAGS,
                     testInput: '', testResult: '', isLoading: false, isPublishing: false,
                     remixOriginId: null,
                     remixOriginTitle: null,
@@ -220,7 +219,7 @@
                             this.form.systemPrompt = makerData.systemPrompt;
                             if (makerData.category) this.form.category = makerData.category;
                             if (makerData.tags && Array.isArray(makerData.tags)) {
-                                this.form.tags = makerData.tags.filter(t => this.tagsList.includes(t));
+                                this.form.tags = makerData.tags;
                             }
 
                             // 公式メーカーの場合はリミックス元として記録しない（セキュリティルール対応）
@@ -237,16 +236,10 @@
                 }
             },
             methods: {
-                toggleTag(tag) {
-                    if (this.form.tags.includes(tag)) {
-                        this.form.tags = this.form.tags.filter(t => t !== tag);
-                    } else {
-                        if (this.form.tags.length >= 5) {
-                            alert("タグは5つまでです");
-                            return;
-                        }
-                        this.form.tags.push(tag);
-                    }
+                selectCategory(cat) {
+                    this.form.category = cat.id;
+                    // Auto-set tag for search compatibility
+                    this.form.tags = [cat.label];
                 },
                 async runTest() {
                     if (!this.testInput) return;
