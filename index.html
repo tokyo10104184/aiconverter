@@ -459,17 +459,21 @@
                                 <div class="text-slate-800 dark:text-indigo-100 leading-relaxed whitespace-pre-wrap">{{ outputText }}</div>
                                 <!-- シェアボタン -->
                                 <div class="mt-4 pt-4 border-t border-indigo-200 dark:border-indigo-800 grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    <button @click="shareResultOnSite" :disabled="isSharingResult" class="w-full bg-teal-600 text-white font-bold py-3 rounded-xl hover:bg-teal-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <button @click="shareResultOnSite" :disabled="isSharingResult || isEditingPrompt" :title="isEditingPrompt ? '編集中のためシェアできません' : ''" class="w-full bg-teal-600 text-white font-bold py-3 rounded-xl hover:bg-teal-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                         <span v-if="isSharingResult" class="loader w-4 h-4 border-2"></span>
                                         <span v-else>🌐 サイトで共有</span>
                                     </button>
-                                    <button @click="shareOnTwitter" class="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition flex items-center justify-center gap-2">
+                                    <button @click="shareOnTwitter" :disabled="isEditingPrompt" :title="isEditingPrompt ? '編集中のためシェアできません' : ''" class="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                         <span>𝕏 でポスト</span>
                                     </button>
-                                    <button @click="generateAndShareImage" :disabled="isGeneratingImage" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <button @click="generateAndShareImage" :disabled="isGeneratingImage || isEditingPrompt" :title="isEditingPrompt ? '編集中のためシェアできません' : ''" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                         <span v-if="isGeneratingImage" class="loader w-4 h-4 border-2"></span>
                                         <span v-else>📷 画像でシェア</span>
                                     </button>
+                                </div>
+                                <div v-if="isEditingPrompt" class="text-center mt-2 text-xs text-red-500 font-bold">
+                                    ※ メーカーを編集中はシェア機能を利用できません。<br>
+                                    リミックスとして公開するとシェアできるようになります。
                                 </div>
                             </div>
                         </div>
@@ -1527,6 +1531,7 @@
                     }
                 },
                 async shareResultOnSite() {
+                    if (this.isEditingPrompt) return;
                     if (!this.user) {
                         this.showAuthModal = true;
                         return;
