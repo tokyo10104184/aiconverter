@@ -450,9 +450,12 @@
                                 </div>
                             </div>
                             <textarea v-model="inputText" class="w-full h-32 p-4 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all resize-none bg-slate-50 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500" :placeholder="currentMaker.placeholder || 'ここにテキストを入力...'"></textarea>
-                            <button @click="convertText" :disabled="!inputText || isLoading" class="w-full bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg transition flex justify-center items-center gap-2">
-                                <span v-if="isLoading" class="loader"></span>
-                                <span v-if="!isLoading">変換スタート ⚡</span>
+                            <button @click="isLoading ? stopGeneration() : convertText()" :disabled="!inputText && !isLoading" class="w-full bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg transition flex justify-center items-center gap-2">
+                                <div v-if="isLoading" class="flex items-center gap-2">
+                                    <span class="w-4 h-4 bg-white rounded-sm"></span>
+                                    <span>停止</span>
+                                </div>
+                                <span v-else>変換スタート ⚡</span>
                             </button>
                             <!-- 結果表示エリア -->
                             <div v-if="outputText" class="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-6 border border-indigo-100 dark:border-indigo-800 mt-4 animate-fade-in">
@@ -912,7 +915,8 @@
                     userLikedResults: {},
                     isSharingResult: false,
                     isEditingPrompt: false,
-                    editedSystemPrompt: ''
+                    editedSystemPrompt: '',
+                    abortController: null
                 }
             },
             computed: {
@@ -1337,10 +1341,19 @@
                         console.error("Error loading remixes:", e);
                     }
                 },
+                stopGeneration() {
+                    if (this.abortController) {
+                        this.abortController.abort();
+                        this.abortController = null;
+                        this.isLoading = false;
+                    }
+                },
                 async convertText() {
                     if (!this.inputText) return;
                     this.isLoading = true;
                     this.outputText = '';
+                    this.abortController = new AbortController();
+
                     try {
                         if (!OPENROUTER_API_KEY) {
                             await new Promise(r => setTimeout(r, 1000));
@@ -1362,24 +1375,53 @@
                                     { role: "system", content: systemContent },
                                     { role: "user", content: this.inputText }
                                 ],
-                                temperature: 0.7
-                            })
+                                temperature: 0.7,
+                                stream: true
+                            }),
+                            signal: this.abortController.signal
                         });
 
                         if (!response.ok) {
                             throw new Error(`API Error: ${response.status} ${response.statusText}`);
                         }
 
-                        const data = await response.json();
-                        if (!data.choices || !data.choices.length || !data.choices[0].message) {
-                            console.error('Unexpected API response:', data);
-                            throw new Error('APIからの応答形式が予期しないものでした。');
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder("utf-8");
+                        let buffer = "";
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split("\n");
+                            buffer = lines.pop(); // Keep the last partial line in the buffer
+
+                            for (const line of lines) {
+                                const trimmedLine = line.trim();
+                                if (!trimmedLine.startsWith("data: ")) continue;
+
+                                const dataStr = trimmedLine.replace("data: ", "");
+                                if (dataStr === "[DONE]") break;
+
+                                try {
+                                    const json = JSON.parse(dataStr);
+                                    const content = json.choices[0]?.delta?.content || "";
+                                    this.outputText += content;
+                                } catch (e) {
+                                    console.error("Error parsing JSON", e);
+                                }
+                            }
                         }
-                        this.outputText = data.choices[0].message.content;
                     } catch (error) {
-                        alert("Error: " + error.message);
+                        if (error.name === 'AbortError') {
+                            console.log('Generation aborted');
+                        } else {
+                            alert("Error: " + error.message);
+                        }
                     } finally {
                         this.isLoading = false;
+                        this.abortController = null;
                     }
                 },
                 // Auth Methods

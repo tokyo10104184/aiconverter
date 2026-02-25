@@ -142,9 +142,12 @@
                 <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
                     <h2 class="text-lg font-bold mb-4 text-slate-900 dark:text-white">🧪 動作テスト</h2>
                     <input v-model="testInput" type="text" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white mb-2 focus:ring-2 focus:ring-indigo-500 outline-none transition" placeholder="テスト用テキスト...">
-                    <button @click="runTest" :disabled="!testInput || isLoading" class="w-full bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white font-bold py-3 rounded-xl transition flex justify-center items-center gap-2">
-                        <span v-if="isLoading" class="loader"></span>
-                        <span v-if="!isLoading">テスト実行 ▶</span>
+                    <button @click="isLoading ? stopTest() : runTest()" :disabled="!testInput && !isLoading" class="w-full bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white font-bold py-3 rounded-xl transition flex justify-center items-center gap-2">
+                        <div v-if="isLoading" class="flex items-center gap-2">
+                            <span class="w-4 h-4 bg-white rounded-sm"></span>
+                            <span>停止</span>
+                        </div>
+                        <span v-else>テスト実行 ▶</span>
                     </button>
                     <div v-if="testResult" class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl whitespace-pre-wrap text-slate-800 dark:text-slate-100">{{ testResult }}</div>
                 </div>
@@ -177,6 +180,7 @@
                     testInput: '', testResult: '', isLoading: false, isPublishing: false,
                     remixOriginId: null,
                     remixOriginTitle: null,
+                    abortController: null,
                     // Official Makers (for remix lookup)
                     officialMakers: [
                         { id: 'off_1', emoji: '😇', title: '聖人君子メール', description: '怒りを極めて冷静なビジネスメールに。', systemPrompt: 'あなたは超一流のビジネスマンです。感情的な文章を、意味を変えずに丁寧で円滑なビジネスメールに書き換えてください。' },
@@ -278,10 +282,19 @@
                     // Auto-set tag for search compatibility
                     this.form.tags = [cat.label];
                 },
+                stopTest() {
+                    if (this.abortController) {
+                        this.abortController.abort();
+                        this.abortController = null;
+                        this.isLoading = false;
+                    }
+                },
                 async runTest() {
                     if (!this.testInput) return;
                     this.isLoading = true;
                     this.testResult = '';
+                    this.abortController = new AbortController();
+
                     try {
                         if (!OPENROUTER_API_KEY) {
                             await new Promise(r => setTimeout(r, 1000));
@@ -298,21 +311,54 @@
                             body: JSON.stringify({
                                 model: "stepfun/step-3.5-flash:free",
                                 messages: [ { role: "system", content: this.form.systemPrompt }, { role: "user", content: this.testInput } ],
-                                temperature: 0.7
-                            })
+                                temperature: 0.7,
+                                stream: true
+                            }),
+                            signal: this.abortController.signal
                         });
 
                         if (!response.ok) {
                             throw new Error(`API Error: ${response.status} ${response.statusText}`);
                         }
 
-                        const data = await response.json();
-                        if (!data.choices || !data.choices.length || !data.choices[0].message) {
-                            console.error('Unexpected API response:', data);
-                            throw new Error('APIからの応答形式が予期しないものでした。');
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder("utf-8");
+                        let buffer = "";
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split("\n");
+                            buffer = lines.pop();
+
+                            for (const line of lines) {
+                                const trimmedLine = line.trim();
+                                if (!trimmedLine.startsWith("data: ")) continue;
+
+                                const dataStr = trimmedLine.replace("data: ", "");
+                                if (dataStr === "[DONE]") break;
+
+                                try {
+                                    const json = JSON.parse(dataStr);
+                                    const content = json.choices[0]?.delta?.content || "";
+                                    this.testResult += content;
+                                } catch (e) {
+                                    console.error("Error parsing JSON", e);
+                                }
+                            }
                         }
-                        this.testResult = data.choices[0].message.content;
-                    } catch (error) { alert("Error: " + error.message); } finally { this.isLoading = false; }
+                    } catch (error) {
+                        if (error.name === 'AbortError') {
+                            console.log('Test aborted');
+                        } else {
+                            alert("Error: " + error.message);
+                        }
+                    } finally {
+                        this.isLoading = false;
+                        this.abortController = null;
+                    }
                 },
                 async publishMaker() {
                     if (!this.user) {
