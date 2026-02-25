@@ -242,6 +242,13 @@
                                 this.form.tags = makerData.tags;
                             }
 
+                            // カスタムプロンプトがある場合は上書き
+                            const customPrompt = sessionStorage.getItem('remix_custom_prompt');
+                            if (customPrompt) {
+                                this.form.systemPrompt = customPrompt;
+                                sessionStorage.removeItem('remix_custom_prompt');
+                            }
+
                             // 公式メーカーの場合はリミックス元として記録しない（セキュリティルール対応）
                             if (!makerData.id.startsWith('off_')) {
                                 this.remixOriginId = makerData.id;
