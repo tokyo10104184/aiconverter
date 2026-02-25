@@ -12,10 +12,31 @@
     </script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-    <style> body { font-family: 'Inter', 'Noto Sans JP', sans-serif; } .loader { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid #fff; width: 20px; height: 20px; animation: spin 1s linear infinite; } @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } } </style>
+    <style>
+        body { font-family: 'Inter', 'Noto Sans JP', sans-serif; }
+        .loader { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid #fff; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+    </style>
 </head>
 <body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen pb-20">
     <div id="app" class="max-w-4xl mx-auto">
+        <!-- Toast Notification -->
+        <transition name="fade">
+            <div v-if="toast.visible" class="fixed top-24 left-1/2 transform -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-3 rounded-full shadow-2xl transition-all duration-300 backdrop-blur-md"
+                 :class="{
+                    'bg-slate-900/90 text-white': toast.type === 'info',
+                    'bg-emerald-600/90 text-white': toast.type === 'success',
+                    'bg-red-500/90 text-white': toast.type === 'error'
+                 }">
+                <span class="text-xl" v-if="toast.type === 'success'">✅</span>
+                <span class="text-xl" v-else-if="toast.type === 'error'">⚠️</span>
+                <span class="text-xl" v-else>ℹ️</span>
+                <span class="font-bold text-sm">{{ toast.message }}</span>
+            </div>
+        </transition>
+
         <!-- 初期ロード中 -->
         <div v-if="!authInitialized" class="fixed inset-0 z-50 flex items-center justify-center bg-white dark:bg-slate-900">
             <div class="loader border-indigo-200 border-t-indigo-600 w-12 h-12"></div>
@@ -181,6 +202,13 @@
                     remixOriginId: null,
                     remixOriginTitle: null,
                     abortController: null,
+                    // Toast State
+                    toast: {
+                        visible: false,
+                        message: '',
+                        type: 'info',
+                        timeout: null
+                    },
                     // Official Makers (for remix lookup)
                     officialMakers: [
                         { id: 'off_1', emoji: '😇', title: '聖人君子メール', description: '怒りを極めて冷静なビジネスメールに。', systemPrompt: 'あなたは超一流のビジネスマンです。感情的な文章を、意味を変えずに丁寧で円滑なビジネスメールに書き換えてください。' },
@@ -267,6 +295,15 @@
                 }
             },
             methods: {
+                showToast(message, type = 'info') {
+                    if (this.toast.timeout) clearTimeout(this.toast.timeout);
+                    this.toast.message = message;
+                    this.toast.type = type;
+                    this.toast.visible = true;
+                    this.toast.timeout = setTimeout(() => {
+                        this.toast.visible = false;
+                    }, 3000);
+                },
                 toggleTheme() {
                     this.isDarkMode = !this.isDarkMode;
                     if (this.isDarkMode) {
@@ -353,7 +390,7 @@
                         if (error.name === 'AbortError') {
                             console.log('Test aborted');
                         } else {
-                            alert("Error: " + error.message);
+                            this.showToast("エラー: " + error.message, 'error');
                         }
                     } finally {
                         this.isLoading = false;
@@ -362,10 +399,10 @@
                 },
                 async publishMaker() {
                     if (!this.user) {
-                        alert("ログインが必要です。");
+                        this.showToast("ログインが必要です。", 'error');
                         return;
                     }
-                    if(!this.form.title || !this.form.systemPrompt) { alert("タイトルとプロンプトは必須です"); return; }
+                    if(!this.form.title || !this.form.systemPrompt) { this.showToast("タイトルとプロンプトは必須です", 'error'); return; }
                     this.isPublishing = true;
                     try {
                         // Firestoreにデータを保存
@@ -380,10 +417,12 @@
                         };
 
                         await addDoc(collection(db, "makers"), payload);
-                        alert("公開しました！🎉 ホームに戻ります。");
-                        window.location.href = "index.html"; // ホームへリダイレクト
+                        this.showToast("公開しました！🎉 ホームに戻ります。", "success");
+                        setTimeout(() => {
+                            window.location.href = "index.html";
+                        }, 1500);
                     } catch (error) {
-                        alert("保存エラー: " + error.message);
+                        this.showToast("保存エラー: " + error.message, 'error');
                         console.error(error);
                     } finally {
                         this.isPublishing = false;
@@ -431,7 +470,7 @@
                         await signOut(auth);
                         // Block modal will reappear
                     } catch (error) {
-                        alert("ログアウト失敗: " + error.message);
+                        this.showToast("ログアウト失敗: " + error.message, 'error');
                     }
                 }
             }
