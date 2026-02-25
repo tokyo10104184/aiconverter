@@ -31,6 +31,21 @@
 </head>
 <body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen">
     <div id="app" v-cloak class="max-w-5xl mx-auto min-h-screen flex flex-col">
+        <!-- Toast Notification -->
+        <transition name="fade">
+            <div v-if="toast.visible" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-3 rounded-full shadow-2xl transition-all duration-300 backdrop-blur-md"
+                 :class="{
+                    'bg-slate-900/90 text-white': toast.type === 'info',
+                    'bg-emerald-600/90 text-white': toast.type === 'success',
+                    'bg-red-500/90 text-white': toast.type === 'error'
+                 }">
+                <span class="text-xl" v-if="toast.type === 'success'">✅</span>
+                <span class="text-xl" v-else-if="toast.type === 'error'">⚠️</span>
+                <span class="text-xl" v-else>ℹ️</span>
+                <span class="font-bold text-sm">{{ toast.message }}</span>
+            </div>
+        </transition>
+
         <!-- ナビ -->
         <nav class="flex items-center justify-between p-4 md:p-6">
             <div class="flex items-center gap-2 cursor-pointer" @click="goHome">
@@ -916,7 +931,14 @@
                     isSharingResult: false,
                     isEditingPrompt: false,
                     editedSystemPrompt: '',
-                    abortController: null
+                    abortController: null,
+                    // Toast State
+                    toast: {
+                        visible: false,
+                        message: '',
+                        type: 'info',
+                        timeout: null
+                    }
                 }
             },
             computed: {
@@ -995,6 +1017,15 @@
                 }
             },
             methods: {
+                showToast(message, type = 'info') {
+                    if (this.toast.timeout) clearTimeout(this.toast.timeout);
+                    this.toast.message = message;
+                    this.toast.type = type;
+                    this.toast.visible = true;
+                    this.toast.timeout = setTimeout(() => {
+                        this.toast.visible = false;
+                    }, 3000);
+                },
                 toggleTheme() {
                     this.isDarkMode = !this.isDarkMode;
                     if (this.isDarkMode) {
@@ -1206,7 +1237,7 @@
                     if (event) event.stopPropagation();
                     if (this.likingInProgress[maker.id]) return;
                     if (this.isOfficialMaker(maker)) {
-                        alert("公式メーカーにはいいねできません。");
+                        this.showToast("公式メーカーにはいいねできません。", "error");
                         return;
                     }
                     if (!this.user) {
@@ -1318,7 +1349,7 @@
                         });
                         this.reportReason = '';
                         this.showReportBox = false;
-                        alert('通報を受け付けました。ご協力ありがとうございます。');
+                        this.showToast('通報を受け付けました。ご協力ありがとうございます。', 'success');
                     } catch (e) {
                         console.error('Report error:', e);
                         this.reportError = '通報の送信に失敗しました。時間をおいて再度お試しください。';
@@ -1417,7 +1448,7 @@
                         if (error.name === 'AbortError') {
                             console.log('Generation aborted');
                         } else {
-                            alert("Error: " + error.message);
+                            this.showToast("エラー: " + error.message, 'error');
                         }
                     } finally {
                         this.isLoading = false;
@@ -1466,7 +1497,7 @@
                     try {
                         await signOut(auth);
                     } catch (error) {
-                        alert("ログアウト失敗: " + error.message);
+                        this.showToast("ログアウト失敗: " + error.message, 'error');
                     }
                 },
                 async deleteMaker() {
@@ -1474,7 +1505,7 @@
 
                     try {
                         await deleteDoc(doc(db, "makers", this.currentMaker.id));
-                        alert("削除しました。");
+                        this.showToast("削除しました。", "success");
                         // Refresh lists
                         this.userMakers = this.userMakers.filter(m => m.id !== this.currentMaker.id);
                         this.myMakers = this.myMakers.filter(m => m.id !== this.currentMaker.id);
@@ -1482,7 +1513,7 @@
                         this.goToMyMakers();
                     } catch (e) {
                         console.error(e);
-                        alert("削除に失敗しました: " + e.message);
+                        this.showToast("削除に失敗しました: " + e.message, 'error');
                     }
                 },
                 shareOnTwitter() {
@@ -1509,7 +1540,7 @@
 
                         canvas.toBlob(async (blob) => {
                             if (!blob) {
-                                alert('画像の生成に失敗しました。');
+                                this.showToast('画像の生成に失敗しました。', 'error');
                                 this.isGeneratingImage = false;
                                 return;
                             }
@@ -1539,7 +1570,7 @@
 
                     } catch (e) {
                         console.error(e);
-                        alert('エラーが発生しました: ' + e.message);
+                        this.showToast('エラーが発生しました: ' + e.message, 'error');
                         this.isGeneratingImage = false;
                     }
                 },
@@ -1602,13 +1633,13 @@
                             createdAt: serverTimestamp(),
                             likesCount: 0
                         });
-                        alert("公開しました！");
+                        this.showToast("公開しました！", "success");
                         // Refresh to show immediately
                         this.fetchMakerSharedResults(this.currentMaker.id);
                         this.fetchGlobalSharedResults();
                     } catch (e) {
                         console.error("Share error:", e);
-                        alert("公開に失敗しました: " + e.message);
+                        this.showToast("公開に失敗しました: " + e.message, 'error');
                     } finally {
                         this.isSharingResult = false;
                     }
@@ -1693,7 +1724,7 @@
                     if (maker) {
                         this.selectMaker(maker);
                     } else {
-                        alert("このメーカーは削除された可能性があります。");
+                        this.showToast("このメーカーは削除された可能性があります。", 'error');
                     }
                 },
                 toggleEditMode() {
@@ -1709,7 +1740,7 @@
                         window.location.href = 'creator.html?remix_id=' + this.currentMaker.id;
                     } catch (e) {
                         console.error('Storage full?', e);
-                        alert('エラーが発生しました。');
+                        this.showToast('エラーが発生しました。', 'error');
                     }
                 }
             }
