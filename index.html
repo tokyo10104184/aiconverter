@@ -464,7 +464,10 @@
                                     </button>
                                 </div>
                             </div>
-                            <textarea v-model="inputText" class="w-full h-32 p-4 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all resize-none bg-slate-50 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500" :placeholder="currentMaker.placeholder || 'ここにテキストを入力...'"></textarea>
+                            <div class="relative">
+                                <textarea v-model="inputText" maxlength="500" class="w-full h-32 p-4 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all resize-none bg-slate-50 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500" :placeholder="currentMaker.placeholder || 'ここにテキストを入力...'"></textarea>
+                                <div class="text-right text-xs text-slate-400 mt-1">{{ inputText.length }}/500</div>
+                            </div>
                             <button @click="isLoading ? stopGeneration() : convertText()" :disabled="!inputText && !isLoading" class="w-full bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg transition flex justify-center items-center gap-2">
                                 <div v-if="isLoading" class="flex items-center gap-2">
                                     <span class="w-4 h-4 bg-white rounded-sm"></span>
