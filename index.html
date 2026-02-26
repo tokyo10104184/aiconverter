@@ -983,8 +983,25 @@
                     availableModels: [
                         { id: 'stepfun/step-3.5-flash:free', name: 'stepfun/step-3.5-flash:free' },
                         { id: 'openrouter/aurora-alpha', name: 'aurora-alpha' },
-                        { id: 'qwen3.5-flash', name: 'Qwen 3.5 Flash' }
+                        { id: 'qwen3.5-flash', name: 'Qwen 3.5 Flash (Poe)' }
                     ],
+                    modelConfig: {
+                        'stepfun/step-3.5-flash:free': {
+                            provider: 'openrouter',
+                            apiModel: 'stepfun/step-3.5-flash:free',
+                            stream: true
+                        },
+                        'openrouter/aurora-alpha': {
+                            provider: 'openrouter',
+                            apiModel: 'openrouter/aurora-alpha',
+                            stream: true
+                        },
+                        'qwen3.5-flash': {
+                            provider: 'poe',
+                            apiModel: 'Qwen3.5-Flash',
+                            stream: false
+                        }
+                    },
                     // ① 公式メーカー（プリセット）
                     officialMakers: [
                         { id: 'off_1', emoji: '😇', title: '聖人君子メール', description: '怒りを極めて冷静なビジネスメールに。', systemPrompt: 'あなたは超一流のビジネスマンです。感情的な文章を、意味を変えずに丁寧で円滑なビジネスメールに書き換えてください。' },
@@ -1536,8 +1553,13 @@
                     try {
                         const systemContent = this.isEditingPrompt ? this.editedSystemPrompt : this.currentMaker.systemPrompt;
                         let apiUrl, apiKey, headers;
+                        const modelConfig = this.modelConfig[this.selectedModel];
 
-                        if (this.selectedModel === 'qwen3.5-flash') {
+                        if (!modelConfig) {
+                            throw new Error(`未対応のモデルです: ${this.selectedModel}`);
+                        }
+
+                        if (modelConfig.provider === 'poe') {
                             if (!POE_API_KEY) {
                                 console.warn('POE_API_KEY missing');
                                 await new Promise(r => setTimeout(r, 1000));
@@ -1567,18 +1589,18 @@
                             };
                         }
 
-                        console.log('Sending request to:', apiUrl);
+                        console.log('Sending request to:', apiUrl, 'with model:', modelConfig.apiModel, 'stream:', modelConfig.stream);
                         const response = await fetch(apiUrl, {
                             method: 'POST',
                             headers: headers,
                             body: JSON.stringify({
-                                model: this.selectedModel,
+                                model: modelConfig.apiModel,
                                 messages: [
                                     { role: "system", content: systemContent },
                                     { role: "user", content: this.inputText }
                                 ],
                                 temperature: 0.7,
-                                stream: true
+                                stream: modelConfig.stream
                             }),
                             signal: this.abortController.signal
                         });
@@ -1591,33 +1613,43 @@
                             throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`);
                         }
 
-                        const reader = response.body.getReader();
-                        const decoder = new TextDecoder("utf-8");
-                        let buffer = "";
+                        if (modelConfig.stream) {
+                            const reader = response.body.getReader();
+                            const decoder = new TextDecoder("utf-8");
+                            let buffer = "";
 
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
 
-                            buffer += decoder.decode(value, { stream: true });
-                            const lines = buffer.split("\n");
-                            buffer = lines.pop(); // Keep the last partial line in the buffer
+                                buffer += decoder.decode(value, { stream: true });
+                                const lines = buffer.split("\n");
+                                buffer = lines.pop(); // Keep the last partial line in the buffer
 
-                            for (const line of lines) {
-                                const trimmedLine = line.trim();
-                                if (!trimmedLine.startsWith("data: ")) continue;
+                                for (const line of lines) {
+                                    const trimmedLine = line.trim();
+                                    if (!trimmedLine.startsWith("data: ")) continue;
 
-                                const dataStr = trimmedLine.replace("data: ", "");
-                                if (dataStr === "[DONE]") break;
+                                    const dataStr = trimmedLine.replace("data: ", "");
+                                    if (dataStr === "[DONE]") break;
 
-                                try {
-                                    const json = JSON.parse(dataStr);
-                                    const content = json.choices[0]?.delta?.content || "";
-                                    this.outputText += content;
-                                } catch (e) {
-                                    console.error("Error parsing JSON", e);
+                                    try {
+                                        const json = JSON.parse(dataStr);
+                                        const content = json.choices[0]?.delta?.content || "";
+                                        this.outputText += content;
+                                    } catch (e) {
+                                        console.error("Error parsing JSON", e);
+                                    }
                                 }
                             }
+                        } else {
+                            const result = await response.json();
+                            const content = result.choices?.[0]?.message?.content || '';
+                            if (!content) {
+                                console.warn('No content in non-stream response:', result);
+                                throw new Error('API応答にテキストが含まれていません');
+                            }
+                            this.outputText = content;
                         }
                     } catch (error) {
                         console.error('Conversion failed:', error);
