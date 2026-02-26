@@ -12,7 +12,8 @@ if (!fs.existsSync(OUTPUT_DIR)){
 
 // 2. Generate env.js in output directory
 const envContent = `window.ENV = {
-    OPENROUTER_API_KEY: ${JSON.stringify(process.env.OPENROUTER_API_KEY || '')}
+    OPENROUTER_API_KEY: ${JSON.stringify(process.env.OPENROUTER_API_KEY || '')},
+    POE_API_KEY: ${JSON.stringify(process.env.POE_API_KEY || '')}
 };`;
 fs.writeFileSync(path.join(OUTPUT_DIR, 'env.js'), envContent);
 console.log('env.js generated successfully in public/');
