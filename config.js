@@ -1,6 +1,7 @@
 // ▼▼▼ Config ▼▼▼
 // 環境変数からAPIキーを取得 (ローカル/Vercel環境)
 export const OPENROUTER_API_KEY = (window.ENV && window.ENV.OPENROUTER_API_KEY) || '';
+export const POE_API_KEY = (window.ENV && window.ENV.POE_API_KEY) || '';
 
 export const firebaseConfig = {
     apiKey: "AIzaSyCgSNCKuPIdi-7P7hJDv3NcCKp_cjPRlB4",
