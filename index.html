@@ -1527,12 +1527,19 @@
                     this.outputText = '';
                     this.abortController = new AbortController();
 
+                    console.log('Starting conversion...', {
+                        model: this.selectedModel,
+                        hasPoeKey: !!POE_API_KEY,
+                        hasOpenRouterKey: !!OPENROUTER_API_KEY
+                    });
+
                     try {
                         const systemContent = this.isEditingPrompt ? this.editedSystemPrompt : this.currentMaker.systemPrompt;
                         let apiUrl, apiKey, headers;
 
                         if (this.selectedModel === 'qwen3.5-flash') {
                             if (!POE_API_KEY) {
+                                console.warn('POE_API_KEY missing');
                                 await new Promise(r => setTimeout(r, 1000));
                                 this.outputText = "【デモモード】POE APIキー未設定です。";
                                 this.isLoading = false; return;
@@ -1545,6 +1552,7 @@
                             };
                         } else {
                             if (!OPENROUTER_API_KEY) {
+                                console.warn('OPENROUTER_API_KEY missing');
                                 await new Promise(r => setTimeout(r, 1000));
                                 this.outputText = "【デモモード】OpenRouter APIキー未設定です。";
                                 this.isLoading = false; return;
@@ -1559,6 +1567,7 @@
                             };
                         }
 
+                        console.log('Sending request to:', apiUrl);
                         const response = await fetch(apiUrl, {
                             method: 'POST',
                             headers: headers,
@@ -1574,8 +1583,12 @@
                             signal: this.abortController.signal
                         });
 
+                        console.log('Response status:', response.status);
+
                         if (!response.ok) {
-                            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                            const errorText = await response.text();
+                            console.error('API Error Response:', errorText);
+                            throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`);
                         }
 
                         const reader = response.body.getReader();
@@ -1607,14 +1620,22 @@
                             }
                         }
                     } catch (error) {
+                        console.error('Conversion failed:', error);
                         if (error.name === 'AbortError') {
                             console.log('Generation aborted');
                         } else {
-                            this.showToast("エラー: " + error.message, 'error');
+                            this.showToast("エラーが発生しました: " + error.message, 'error');
+                            // If CORS error, give a hint
+                            if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+                                this.outputText = "【通信エラー】\nサーバーに接続できませんでした。CORS制限またはネットワークの問題の可能性があります。";
+                            } else {
+                                this.outputText = `【エラー】\n${error.message}`;
+                            }
                         }
                     } finally {
                         this.isLoading = false;
                         this.abortController = null;
+                        console.log('Conversion process finished.');
                     }
                 },
                 // Auth Methods
